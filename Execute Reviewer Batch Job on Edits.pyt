@@ -46,7 +46,7 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
     elif level.lower() == 'gp':
         arcpy_messages.addGPMessages()
     else:
-        raise ValueError('\'level\' must be one of (info, debug, error, gp)')
+        raise ValueError('Parameter \'level\' must be one of (info, debug, error, gp)')
 
     return True
 
@@ -270,6 +270,10 @@ class ExecuteReviewerBatchJobOnEdits(object):
             log_it('Buffering edited routes by 10 meters',
                 level='info', logger=logger, arcpy_messages=messages)
             buffer_polygons = 'in_memory\\mpbuff_{}'.format(int(time.time()))
+
+            # Set the output coordinate reference for the Buffer_analysis call
+            arcpy.env.outputCoordinateSystem = arcpy.Describe(milepoint_fc).spatialReference
+
             arcpy.Buffer_analysis(
                 version_select_milepoint_layer,
                 buffer_polygons,
