@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import time
+import traceback
 
 import arcpy
 
@@ -190,129 +191,136 @@ class ExecuteReviewerBatchJobOnEdits(object):
                                     production_ws, job__id,
                                     job__started_date, job__owned_by,
                                     logger=None, messages=None):
-        if not logger:
-            logger = initialize_logger(log_path=None, log_level=logging.INFO)
+        try:
+            if not logger:
+                logger = initialize_logger(log_path=None, log_level=logging.INFO)
+            log_it('Correct!!!!!', level='info', logger=logger, arcpy_messages=messages)
 
-        log_it(('Calling run_batch_on_buffered_edits(): Selecting edits by this user ' +
-                'in this version and buffering by 10 meters'),
-                level='info', logger=logger, arcpy_messages=messages)
+            log_it(('Calling run_batch_on_buffered_edits(): Selecting edits by this user ' +
+                    'in this version and buffering by 10 meters'),
+                    level='info', logger=logger, arcpy_messages=messages)
 
-        arcpy.CheckOutExtension('datareviewer')
+            arcpy.CheckOutExtension('datareviewer')
 
-        # Set the database connection as the workspace. All table and FC references come from here
-        arcpy.env.workspace = production_ws
+            # Set the database connection as the workspace. All table and FC references come from here
+            arcpy.env.workspace = production_ws
 
-        # Assemble the version name from its component parts. This is much easier than passing in
-        #  the version name, as version names contain " and \ characters :-|
-        if '\\' in job__owned_by:
-            user = job__owned_by.split('\\')[1]
-        else:
-            user = job__owned_by
-        production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
-            user=user,
-            job_id=job__id
-        )
-        log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
-                '{}'.format(production_ws_version)),
-                level='debug', arcpy_messages=messages)
-
-        # Check that the production workspace contains the production workspace version
-        version_names = arcpy.ListVersions(production_ws)
-        if not production_ws_version in version_names:
-            raise AttributeError(
-                'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
-                    production_ws_version,
-                    production_ws
-                ) + ' Available versions include: {}'.format(version_names)
-            )
-
-        # Select the milepoint LRS feature class from the workspace
-        milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
-        if len(milepoint_fcs) != 1:
-            raise ValueError(
-                'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
-                'Selected FCs: {}'.format(milepoint_fcs)
-            )
-        else:
-            milepoint_fc = milepoint_fcs[0]
-
-        # Filter out edits made by this user on this version since its creation
-        where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\''.format(
-            date=job__started_date,
-            user=user
-        )
-        log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
-               level='debug', logger=logger, arcpy_messages=messages)
-        sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
-            milepoint_fc,
-            'milepoint_layer'
-        )
-
-        # Explicitly change version to the input version, as the SDE file could point to anything
-        version_milepoint_layer = arcpy.ChangeVersion_management(
-            sde_milepoint_layer,
-            'TRANSACTIONAL',
-            version_name=production_ws_version
-        )
-        version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
-            version_milepoint_layer,
-            'NEW_SELECTION',
-            where_clause=where_clause
-        )
-        log_it('{count} features selected'.format(
-               count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
-               level='debug', logger=logger, arcpy_messages=messages)
-
-        # Create buffer polygons of the edited features. These will be used as the DR analysis_area
-        log_it('Buffering edited routes by 10 meters',
-               level='info', logger=logger, arcpy_messages=messages)
-        buffer_polygons = 'in_memory\\mpbuff_{}'.format(int(time.time()))
-        arcpy.Buffer_analysis(
-            version_select_milepoint_layer,
-            buffer_polygons,
-            '10 Meters'
-        )
-        log_it('', level='gp', logger=logger, arcpy_messages=messages)
-
-        # Data Reviewer tokens are only supported in the default Step Types. We must back out
-        #  the session name from the DR tables
-        reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
-            user=user,
-            job_id=job__id
-        )
-        reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
-        with arcpy.da.SearchCursor(reviewer_ws, reviewer_fields, where_clause=reviewer_where_clause) as curs:
-            for row in curs:
-                session_id = row.getValue('SESSIONID')
-        
-        if session_id:
-            reviewer_session = 'Session {session_id} : {job_id}'.format(
-                session_id=session_id,
+            # Assemble the version name from its component parts. This is much easier than passing in
+            #  the version name, as version names contain " and \ characters :-|
+            if '\\' in job__owned_by:
+                user = job__owned_by.split('\\')[1]
+            else:
+                user = job__owned_by
+            production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
+                user=user,
                 job_id=job__id
             )
-            log_it('Reviewer session name determined as: {}'.format(reviewer_session),
-                    level='debug', arcpy_messages=messages)
-        else:
-            raise ValueError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+            log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
+                    '{}'.format(production_ws_version)),
+                    level='debug', logger=logger, arcpy_messages=messages)
 
-        reviewer_results = arcpy.ExecuteReviewerBatchJob_Reviewer(
-            reviewer_ws,
-            reviewer_session,
-            batch_job_file,
-            production_workspace=production_ws,
-            analysis_area=buffer_polygons,
-            changed_features='ALL_FEATURES',
-            production_workspaceversion=production_ws_version
-        )
+            # Check that the production workspace contains the production workspace version
+            version_names = arcpy.ListVersions(production_ws)
+            if not production_ws_version in version_names:
+                raise AttributeError(
+                    'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
+                        production_ws_version,
+                        production_ws
+                    ) + ' Available versions include: {}'.format(version_names)
+                )
 
-        log_it('', level='gp', logger=logger, arcpy_messages=messages)
-        log_it('Data Reviewer completed with results: {}'.format(reviewer_results),
-               level='info', logger=logger, arcpy_messages=messages)
+            # Select the milepoint LRS feature class from the workspace
+            milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
+            if len(milepoint_fcs) != 1:
+                raise ValueError(
+                    'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
+                    'Selected FCs: {}'.format(milepoint_fcs)
+                )
+            else:
+                milepoint_fc = milepoint_fcs[0]
 
-        try:
-            arcpy.CheckInExtension('datareviewer')
-            arcpy.Delete_management(buffer_polygons)
-        except:
-            pass
+            # Filter out edits made by this user on this version since its creation
+            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\''.format(
+                date=job__started_date,
+                user=user
+            )
+            log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
+                level='debug', logger=logger, arcpy_messages=messages)
+            sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
+                milepoint_fc,
+                'milepoint_layer_{}'.format(int(time.time()))
+            )
 
-        return True
+            # Explicitly change version to the input version, as the SDE file could point to anything
+            version_milepoint_layer = arcpy.ChangeVersion_management(
+                sde_milepoint_layer,
+                'TRANSACTIONAL',
+                version_name=production_ws_version
+            )
+            version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
+                version_milepoint_layer,
+                'NEW_SELECTION',
+                where_clause=where_clause
+            )
+            log_it('{count} features selected'.format(
+                count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
+                level='debug', logger=logger, arcpy_messages=messages)
+
+            # Create buffer polygons of the edited features. These will be used as the DR analysis_area
+            log_it('Buffering edited routes by 10 meters',
+                level='info', logger=logger, arcpy_messages=messages)
+            buffer_polygons = 'in_memory\\mpbuff_{}'.format(int(time.time()))
+            arcpy.Buffer_analysis(
+                version_select_milepoint_layer,
+                buffer_polygons,
+                '10 Meters'
+            )
+            log_it('', level='gp', logger=logger, arcpy_messages=messages)
+
+            # Data Reviewer tokens are only supported in the default Step Types. We must back out
+            #  the session name from the DR tables
+            reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
+                user=user,
+                job_id=job__id
+            )
+            reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
+            session_table = os.path.join(reviewer_ws, 'GDB_REVSESSIONTABLE')
+            with arcpy.da.SearchCursor(session_table, reviewer_fields, where_clause=reviewer_where_clause) as curs:
+                for row in curs:
+                    session_id = row[0]
+
+            if session_id:
+                reviewer_session = 'Session {session_id} : {job_id}'.format(
+                    session_id=session_id,
+                    job_id=job__id
+                )
+                log_it('Reviewer session name determined to be \'{}\''.format(reviewer_session),
+                        level='debug', arcpy_messages=messages)
+            else:
+                raise ValueError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+
+            reviewer_results = arcpy.ExecuteReviewerBatchJob_Reviewer(
+                reviewer_ws,
+                reviewer_session,
+                batch_job_file,
+                production_workspace=production_ws,
+                analysis_area=buffer_polygons,
+                changed_features='ALL_FEATURES',
+                production_workspaceversion=production_ws_version
+            )
+
+            log_it('', level='gp', logger=logger, arcpy_messages=messages)
+            log_it('Data Reviewer completed with results: {}'.format(reviewer_results),
+                level='info', logger=logger, arcpy_messages=messages)
+
+            try:
+                arcpy.CheckInExtension('datareviewer')
+                arcpy.Delete_management(buffer_polygons)
+            except:
+                pass
+
+            return True
+        except Exception as exc:
+            exception_string = traceback.format_exc()
+            log_it(exception_string, level='error', logger=logger, arcpy_messages=messages)
+            raise exc
