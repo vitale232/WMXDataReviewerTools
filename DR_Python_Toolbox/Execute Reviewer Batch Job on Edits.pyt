@@ -64,7 +64,7 @@ class ExecuteReviewerBatchJobOnEdits(object):
         self.description = (
             'Determine which edits were made by the job\'s creator since the creation date, ' +
             'buffer the edits by 10 meters, and execute a Data Reviewer Batch Job with the ' +
-            'buffer polygons determining the Data Reviewer Analysis Area'
+            'buffer polygons input as the Data Reviewer Analysis Area.'
         )
         self.canRunInBackground = False
 
@@ -76,14 +76,6 @@ class ExecuteReviewerBatchJobOnEdits(object):
             parameterType='Required',
             direction='Input'
         )
-
-        # reviewer_session_param = arcpy.Parameter(
-        #     displayName='Reviewer Session Name',
-        #     name='reviewer_session',
-        #     datatype='GPString',
-        #     parameterType='Required',
-        #     direction='Input'
-        # )
 
         batch_job_file_param = arcpy.Parameter(
             displayName='Reviewer Batch Job Filepath (.rbj)',
@@ -100,14 +92,6 @@ class ExecuteReviewerBatchJobOnEdits(object):
             parameterType='Required',
             direction='Input'
         )
-
-        # production_ws_version_param = arcpy.Parameter(
-        #     displayName='Production Workspace Version Name',
-        #     name='production_ws_version',
-        #     datatype='GPString',
-        #     parameterType='Required',
-        #     direction='Input'
-        # )
 
         job__id_param = arcpy.Parameter(
             displayName='Workflow Manager Job ID',
@@ -155,15 +139,12 @@ class ExecuteReviewerBatchJobOnEdits(object):
                 raise Exception
         except Exception:
             return False
-
         return True
 
     def execute(self, parameters, messages):
         reviewer_ws = parameters[0].valueAsText
-        # reviewer_session = parameters[1].valueAsText
         batch_job_file = parameters[1].valueAsText
         production_ws = parameters[2].valueAsText
-        # production_ws_version = parameters[4].valueAsText
         job__id = parameters[3].valueAsText
         job__started_date = parameters[4].valueAsText
         job__owned_by = parameters[5].valueAsText
@@ -194,10 +175,9 @@ class ExecuteReviewerBatchJobOnEdits(object):
         try:
             if not logger:
                 logger = initialize_logger(log_path=None, log_level=logging.INFO)
-            log_it('Correct!!!!!', level='info', logger=logger, arcpy_messages=messages)
 
             log_it(('Calling run_batch_on_buffered_edits(): Selecting edits by this user ' +
-                    'in this version and buffering by 10 meters'),
+                    'in HDS_GENERAL_EDITING_JOB_{} and buffering by 10 meters'.format(job__id)),
                     level='info', logger=logger, arcpy_messages=messages)
 
             arcpy.CheckOutExtension('datareviewer')
@@ -231,13 +211,13 @@ class ExecuteReviewerBatchJobOnEdits(object):
 
             # Select the milepoint LRS feature class from the workspace
             milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
-            if len(milepoint_fcs) != 1:
+            if len(milepoint_fcs) == 1:
+                milepoint_fc = milepoint_fcs[0]
+            else:
                 raise ValueError(
                     'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
                     'Selected FCs: {}'.format(milepoint_fcs)
                 )
-            else:
-                milepoint_fc = milepoint_fcs[0]
 
             # Filter out edits made by this user on this version since its creation
             where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\''.format(
@@ -281,7 +261,7 @@ class ExecuteReviewerBatchJobOnEdits(object):
             )
             log_it('', level='gp', logger=logger, arcpy_messages=messages)
 
-            # Data Reviewer tokens are only supported in the default Step Types. We must back out
+            # Data Reviewer WMX tokens are only supported in the default DR Step Types. We must back out
             #  the session name from the DR tables
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
                 user=user,
@@ -312,19 +292,27 @@ class ExecuteReviewerBatchJobOnEdits(object):
                 changed_features='ALL_FEATURES',
                 production_workspaceversion=production_ws_version
             )
-
             log_it('', level='gp', logger=logger, arcpy_messages=messages)
-            log_it('Data Reviewer completed with results: {}'.format(reviewer_results),
-                level='info', logger=logger, arcpy_messages=messages)
 
             try:
+                # Try to cleanup the runtime environment
                 arcpy.CheckInExtension('datareviewer')
-                arcpy.Delete_management(buffer_polygons)
+                arcpy.env.workspace = r'in_memory'
+                fcs = arcpy.ListFeatureClasses()
+                log_it('in_memory fcs: {}'.format(fcs), level='debug', logger=logger, arcpy_messages=messages)
+                for in_memory_fc in fcs:
+                    try:
+                        arcpy.Delete_management(in_memory_fc)
+                        log_it(' deleted: {}'.format(in_memory_fc), level='debug', logger=logger, arcpy_messages=messages)
+                    except:
+                        pass
             except:
                 pass
 
+            log_it('GP Tool success at: {}'.format(datetime.datetime.now()),
+                level='info', logger=logger, arcpy_messages=messages)
             return True
+
         except Exception as exc:
-            exception_string = traceback.format_exc()
-            log_it(exception_string, level='error', logger=logger, arcpy_messages=messages)
+            log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
             raise exc
