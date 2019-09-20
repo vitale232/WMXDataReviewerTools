@@ -4,7 +4,7 @@ import arcpy
 
 
 def main():
-    sde_file = 'Database Connections\dev_elrs_elrs_elrsnetworkeditor_EditVersion.sde'
+    sde_file = r'Database Connections\dev_elrs_ad_Lockroot.sde'
     db_connection = arcpy.ArcSDESQLExecute(sde_file)
     versions = arcpy.da.ListVersions(sde_file)
     print(versions)
@@ -33,18 +33,18 @@ def main():
         # '''AND (FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND (TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP)
         # GROUP BY SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG;'''
     # sql = '''SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE 1=1'''
-    sql = """
-	DECLARE @CurrentSDEVersion VARCHAR(100)
+    # sql = """
+	# DECLARE @CurrentSDEVersion VARCHAR(100)
 
-		SELECT distinct @CurrentSDEVersion =  v.owner + '.' + v.name  FROM [SDE].[SDE_versions] v
-		inner join
-			[SDE].[SDE_states] la on v.state_id=la.state_id
-		inner join
-            [SDE].[SDE_states] ls on ls.lineage_name = la.lineage_name;
+	# 	SELECT distinct @CurrentSDEVersion =  v.owner + '.' + v.name  FROM [SDE].[SDE_versions] v
+	# 	inner join
+	# 		[SDE].[SDE_states] la on v.state_id=la.state_id
+	# 	inner join
+    #         [SDE].[SDE_states] ls on ls.lineage_name = la.lineage_name;
     
-    PRINT @CurrentSDEVersion;
-    """
-    print(sql)
+    # PRINT @CurrentSDEVersion;
+    # """
+    # print(sql)
     
     response = db_connection.execute(sql)
     print(response)
