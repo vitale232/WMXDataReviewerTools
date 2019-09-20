@@ -227,6 +227,10 @@ def run_sql_validations(reviewer_ws, batch_job_file,
 
         unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
         unique_co_dir_result = connection.execute(unique_co_dir_sql)
+        log_it(str(unique_co_dir_result), arcpy_messages=messages, logger=logger)
+
+        if isinstance(unique_co_dir_result, bool):
+            unique_co_dir_result = []
 
         if len(unique_rdwy_attrs_result) > 0 or len(unique_co_dir_result) > 0:
             # Create a versioned arcpy feature layer of the Milepoint feature class
@@ -341,7 +345,7 @@ def co_dir_sql_result_to_feature_class(result_list, versioned_layer, reviewer_ws
     where_clause = ''
     for dot_id, county_order in zip(dot_ids, county_orders):
         where_clause += '(DOT_ID = \'{}\' AND COUNTY_ORDER = \'{}\') OR '.format(dot_id, county_order)
-    # Remove the extra ' AND ' from the where_clause from the last iteration
+    # Remove the extra ' OR ' from the where_clause from the last iteration
     where_clause = where_clause[:-4]
     log_it('{}: SQL Results where_clause: {}'.format(log_name, where_clause),
         level='info', logger=logger, arcpy_messages=arcpy_messages)
