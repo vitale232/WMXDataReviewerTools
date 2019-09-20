@@ -255,8 +255,8 @@ def run_sql_validations(reviewer_ws, batch_job_file,
 
             reviewer_session_name = get_reviewer_session_name(
                 reviewer_ws,
-                'avitale',
-                'Session 1',
+                user,
+                job__id,
                 logger=logger,
                 arcpy_messages=messages
             )
