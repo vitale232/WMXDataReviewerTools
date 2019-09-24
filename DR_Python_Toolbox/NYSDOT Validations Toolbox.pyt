@@ -7,6 +7,222 @@ import traceback
 import arcpy
 
 
+class Toolbox(object):
+    def __init__(self):
+        self.label = 'NYSDOT Validations Toolbox'
+        self.alias = 'revbatch'
+
+        self.tools = [
+            ExecuteReviewerBatchJobOnEdits, ExecuteNetworkSQLValidations,
+            ExecuteAllValidations,
+        ]
+
+
+class NYSDOTValidationsMixin(object):
+    """
+    Since the Data Reviewer jobs all require the same inputs, we'll use a Mixin
+    to define the getParameterInfo and the isLicensed methods. Now it only needs to be
+    maintained in one location
+    """
+
+    def getParameterInfo(self):
+        reviewer_ws_param = arcpy.Parameter(
+            displayName='Reviewer Workspace',
+            name='reviewer_ws',
+            datatype='DEWorkspace',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        batch_job_file_param = arcpy.Parameter(
+            displayName='Reviewer Batch Job Filepath (.rbj)',
+            name='batch_job_file',
+            datatype='DEFile',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        production_ws_param = arcpy.Parameter(
+            displayName='Production Workspace (SDE File)',
+            name='production_ws',
+            datatype='DEWorkspace',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        job__id_param = arcpy.Parameter(
+            displayName='Workflow Manager Job ID',
+            name='job__id',
+            datatype='GPString',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        job__started_date_param = arcpy.Parameter(
+            displayName='Edits Start Date (e.g. WMX Job Creation Date)',
+            name='job__started_date',
+            datatype='GPDate',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        job__owned_by_param = arcpy.Parameter(
+            displayName='Editor Username (e.g. WMX Owned by User)',
+            name='job__owned_by',
+            datatype='GPString',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        log_path_param = arcpy.Parameter(
+            displayName='Output Logfile Path',
+            name='log_path',
+            datatype='DETextfile',
+            parameterType='Optional',
+            direction='Output'
+        )
+
+        params = [
+            reviewer_ws_param, batch_job_file_param, production_ws_param,
+            job__id_param, job__started_date_param, job__owned_by_param,
+            log_path_param
+        ]
+
+        return params
+
+    def isLicensed(self):
+        try:
+            if arcpy.CheckExtension('datareviewer') != 'Available':
+                raise Exception
+        except Exception:
+            return False
+        return True
+
+
+class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
+    def __init__(self):
+        self.label = 'Execute SQL Validations Against Network'
+        self.description = (
+            'Run SQL validations against the Milepoint network in the ELRS. '  +
+            'These validations ensure that the roadway level attributes are correct, ' +
+            'and the results are saved to the Data Reviewer session.'
+        )
+        self.canRunInBackground = False
+
+    def execute(self, parameters, messages):
+        reviewer_ws = parameters[0].valueAsText
+        batch_job_file = parameters[1].valueAsText
+        production_ws = parameters[2].valueAsText
+        job__id = parameters[3].valueAsText
+        job__started_date = parameters[4].valueAsText
+        job__owned_by = parameters[5].valueAsText
+        log_path = parameters[6].valueAsText
+
+        if log_path == '':
+            log_path = None
+
+        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+
+        run_sql_validations(
+            reviewer_ws,
+            batch_job_file,
+            production_ws,
+            job__id,
+            job__started_date,
+            job__owned_by,
+            logger=logger,
+            messages=messages
+        )
+
+        return True
+
+
+class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
+    def __init__(self):
+        self.label = 'Execute Reviewer Batch Job on R&H Edits'
+        self.description = (
+            'Determine which edits were made by the job\'s creator since the creation date, ' +
+            'buffer the edits by 10 meters, and execute a Data Reviewer Batch Job with the ' +
+            'buffer polygons input as the Data Reviewer Analysis Area.'
+        )
+        self.canRunInBackground = False
+
+    def execute(self, parameters, messages):
+        reviewer_ws = parameters[0].valueAsText
+        batch_job_file = parameters[1].valueAsText
+        production_ws = parameters[2].valueAsText
+        job__id = parameters[3].valueAsText
+        job__started_date = parameters[4].valueAsText
+        job__owned_by = parameters[5].valueAsText
+        log_path = parameters[6].valueAsText
+
+        if log_path == '':
+            log_path = None
+
+        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+
+        run_batch_on_buffered_edits(
+            reviewer_ws,
+            batch_job_file,
+            production_ws,
+            job__id,
+            job__started_date,
+            job__owned_by,
+            logger=logger,
+            messages=messages
+        )
+
+        return True
+
+
+class ExecuteAllValidations(NYSDOTValidationsMixin, object):
+    def __init__(self):
+        self.label = 'Execute All Validations'
+        self.description = (
+            'Run the Data Reviewer batch job and Milepoint SQL validations and ' +
+            'save the results to the Data Reviewer session.'
+        )
+        self.canRunInBackground = False
+
+
+    def execute(self, parameters, messages):
+        reviewer_ws = parameters[0].valueAsText
+        batch_job_file = parameters[1].valueAsText
+        production_ws = parameters[2].valueAsText
+        job__id = parameters[3].valueAsText
+        job__started_date = parameters[4].valueAsText
+        job__owned_by = parameters[5].valueAsText
+        log_path = parameters[6].valueAsText
+
+        if log_path == '':
+            log_path = None
+
+        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+
+        run_batch_on_buffered_edits(
+            reviewer_ws,
+            batch_job_file,
+            production_ws,
+            job__id,
+            job__started_date,
+            job__owned_by,
+            logger=logger,
+            messages=messages
+        )
+
+        run_sql_validations(
+            reviewer_ws,
+            batch_job_file,
+            production_ws,
+            job__id,
+            job__started_date,
+            job__owned_by,
+            logger=logger,
+            messages=messages
+        )
+
+        return True
+
 def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 production_ws, job__id,
                                 job__started_date, job__owned_by,
@@ -156,15 +372,12 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
         raise exc
 
-
 def run_sql_validations(reviewer_ws, batch_job_file,
                         production_ws, job__id,
                         job__started_date, job__owned_by,
                         logger=None, messages=None):
     try:
         # These are the sql queries that need to be run against the full Milepoint table.
-        #  Once the version name is determined, it will be plugged into the queries with the
-        #  string format method
         arcpy.CheckOutExtension('datareviewer')
 
         unique_rdwy_attrs_sql= (
@@ -264,7 +477,7 @@ def run_sql_validations(reviewer_ws, batch_job_file,
             if len(unique_rdwy_attrs_result) > 0:
                 unique_rdwy_attrs_check_title = 'ROUTE_ID with improper roadway attrs across DOT_ID'
 
-                rdwy_attrs_sql_result_to_feature_class(
+                rdwy_attrs_sql_result_to_reviewer_table(
                     unique_rdwy_attrs_result,
                     version_milepoint_layer,
                     reviewer_ws,
@@ -279,7 +492,7 @@ def run_sql_validations(reviewer_ws, batch_job_file,
             if len(unique_co_dir_result) > 0:
                 unique_co_dir_check_title = 'Non-Unique COUNTY_ORDER and DIRECTION for this DOT_ID'
 
-                co_dir_sql_result_to_feature_class(
+                co_dir_sql_result_to_reviewer_table(
                     unique_co_dir_result,
                     version_milepoint_layer,
                     reviewer_ws,
@@ -334,11 +547,11 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
         raise ValueError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
     return reviewer_session
 
-def co_dir_sql_result_to_feature_class(result_list, versioned_layer, reviewer_ws,
-                                       session_name, origin_table, check_description,
-                                       dot_id_index=0, county_order_index=1,
-                                       log_name='', level='info',
-                                       logger=None, arcpy_messages=None):
+def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_ws,
+                                        session_name, origin_table, check_description,
+                                        dot_id_index=0, county_order_index=1,
+                                        log_name='', level='info',
+                                        logger=None, arcpy_messages=None):
     dot_ids = [result_row[dot_id_index] for result_row in result_list]
     county_orders = [result_row[county_order_index] for result_row in result_list]
 
@@ -373,10 +586,10 @@ def co_dir_sql_result_to_feature_class(result_list, versioned_layer, reviewer_ws
     log_it('', level='gp', logger=logger, arcpy_messages=arcpy_messages)
     return True
 
-def rdwy_attrs_sql_result_to_feature_class(result_list, versioned_layer, reviewer_ws,
-                                           session_name, origin_table, check_description,
-                                           dot_id_index=0, log_name='', level='info',
-                                           logger=None, arcpy_messages=None):
+def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_ws,
+                                            session_name, origin_table, check_description,
+                                            dot_id_index=0, log_name='', level='info',
+                                            logger=None, arcpy_messages=None):
     dot_ids = [result_row[dot_id_index] for result_row in result_list]
     where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "')"
     arcpy.SelectLayerByAttribute_management(
@@ -473,353 +686,3 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
 
     return True
 
-class Toolbox(object):
-    def __init__(self):
-        self.label = 'NYSDOT Validations Toolbox'
-        self.alias = 'revbatch'
-
-        self.tools = [
-            ExecuteReviewerBatchJobOnEdits, ExecuteNetworkSQLValidations,
-            ExecuteAllValidations,
-        ]
-
-
-class ExecuteNetworkSQLValidations(object):
-    def __init__(self):
-        self.label = 'Execute SQL Validations Against Network'
-        self.description = (
-            'Run SQL validations against the Milepoint network in the ELRS. '  +
-            'These validations ensure that the roadway level attributes are correct, ' +
-            'and the results are saved to the Data Reviewer session.'
-        )
-        self.canRunInBackground = False
-
-    def getParameterInfo(self):
-        reviewer_ws_param = arcpy.Parameter(
-            displayName='Reviewer Workspace',
-            name='reviewer_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        batch_job_file_param = arcpy.Parameter(
-            displayName='Reviewer Batch Job Filepath (.rbj)',
-            name='batch_job_file',
-            datatype='DEFile',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        production_ws_param = arcpy.Parameter(
-            displayName='Production Workspace (SDE File)',
-            name='production_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__id_param = arcpy.Parameter(
-            displayName='Workflow Manager Job ID',
-            name='job__id',
-            datatype='GPString',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__started_date_param = arcpy.Parameter(
-            displayName='Edits Start Date (e.g. WMX Job Creation Date)',
-            name='job__started_date',
-            datatype='GPDate',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__owned_by_param = arcpy.Parameter(
-            displayName='Editor Username (e.g. WMX Owned by User)',
-            name='job__owned_by',
-            datatype='GPString',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        log_path_param = arcpy.Parameter(
-            displayName='Output Logfile Path',
-            name='log_path',
-            datatype='DETextfile',
-            parameterType='Optional',
-            direction='Output'
-        )
-
-        params = [
-            reviewer_ws_param, batch_job_file_param, production_ws_param,
-            job__id_param, job__started_date_param, job__owned_by_param,
-            log_path_param
-        ]
-
-        return params
-
-    def isLicensed(self):
-        try:
-            if arcpy.CheckExtension('datareviewer') != 'Available':
-                raise Exception
-        except Exception:
-            return False
-        return True
-
-    def execute(self, parameters, messages):
-        reviewer_ws = parameters[0].valueAsText
-        batch_job_file = parameters[1].valueAsText
-        production_ws = parameters[2].valueAsText
-        job__id = parameters[3].valueAsText
-        job__started_date = parameters[4].valueAsText
-        job__owned_by = parameters[5].valueAsText
-        log_path = parameters[6].valueAsText
-
-        if log_path == '':
-            log_path = None
-
-        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
-
-        run_sql_validations(
-            reviewer_ws,
-            batch_job_file,
-            production_ws,
-            job__id,
-            job__started_date,
-            job__owned_by,
-            logger=logger,
-            messages=messages
-        )
-
-        return True
-
-class ExecuteReviewerBatchJobOnEdits(object):
-    def __init__(self):
-        self.label = 'Execute Reviewer Batch Job on R&H Edits'
-        self.description = (
-            'Determine which edits were made by the job\'s creator since the creation date, ' +
-            'buffer the edits by 10 meters, and execute a Data Reviewer Batch Job with the ' +
-            'buffer polygons input as the Data Reviewer Analysis Area.'
-        )
-        self.canRunInBackground = False
-
-    def getParameterInfo(self):
-        reviewer_ws_param = arcpy.Parameter(
-            displayName='Reviewer Workspace',
-            name='reviewer_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        batch_job_file_param = arcpy.Parameter(
-            displayName='Reviewer Batch Job Filepath (.rbj)',
-            name='batch_job_file',
-            datatype='DEFile',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        production_ws_param = arcpy.Parameter(
-            displayName='Production Workspace (SDE File)',
-            name='production_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__id_param = arcpy.Parameter(
-            displayName='Workflow Manager Job ID',
-            name='job__id',
-            datatype='GPString',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__started_date_param = arcpy.Parameter(
-            displayName='Edits Start Date (e.g. WMX Job Creation Date)',
-            name='job__started_date',
-            datatype='GPDate',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__owned_by_param = arcpy.Parameter(
-            displayName='Editor Username (e.g. WMX Owned by User)',
-            name='job__owned_by',
-            datatype='GPString',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        log_path_param = arcpy.Parameter(
-            displayName='Output Logfile Path',
-            name='log_path',
-            datatype='DETextfile',
-            parameterType='Optional',
-            direction='Output'
-        )
-
-        params = [
-            reviewer_ws_param, batch_job_file_param, production_ws_param,
-            job__id_param, job__started_date_param, job__owned_by_param,
-            log_path_param
-        ]
-
-        return params
-
-    def isLicensed(self):
-        try:
-            if arcpy.CheckExtension('datareviewer') != 'Available':
-                raise Exception
-        except Exception:
-            return False
-        return True
-
-    def execute(self, parameters, messages):
-        reviewer_ws = parameters[0].valueAsText
-        batch_job_file = parameters[1].valueAsText
-        production_ws = parameters[2].valueAsText
-        job__id = parameters[3].valueAsText
-        job__started_date = parameters[4].valueAsText
-        job__owned_by = parameters[5].valueAsText
-        log_path = parameters[6].valueAsText
-
-        if log_path == '':
-            log_path = None
-
-        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
-
-        run_batch_on_buffered_edits(
-            reviewer_ws,
-            batch_job_file,
-            production_ws,
-            job__id,
-            job__started_date,
-            job__owned_by,
-            logger=logger,
-            messages=messages
-        )
-
-        return True
-
-class ExecuteAllValidations(object):
-    def __init__(self):
-        self.label = 'Execute All Validations'
-        self.description = (
-            'Run the Data Reviewer batch job and Milepoint SQL validations and ' +
-            'save the results to the Data Reviewer session.'
-        )
-        self.canRunInBackground = False
-
-    def getParameterInfo(self):
-        reviewer_ws_param = arcpy.Parameter(
-            displayName='Reviewer Workspace',
-            name='reviewer_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        batch_job_file_param = arcpy.Parameter(
-            displayName='Reviewer Batch Job Filepath (.rbj)',
-            name='batch_job_file',
-            datatype='DEFile',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        production_ws_param = arcpy.Parameter(
-            displayName='Production Workspace (SDE File)',
-            name='production_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__id_param = arcpy.Parameter(
-            displayName='Workflow Manager Job ID',
-            name='job__id',
-            datatype='GPString',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__started_date_param = arcpy.Parameter(
-            displayName='Edits Start Date (e.g. WMX Job Creation Date)',
-            name='job__started_date',
-            datatype='GPDate',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__owned_by_param = arcpy.Parameter(
-            displayName='Editor Username (e.g. WMX Owned by User)',
-            name='job__owned_by',
-            datatype='GPString',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        log_path_param = arcpy.Parameter(
-            displayName='Output Logfile Path',
-            name='log_path',
-            datatype='DETextfile',
-            parameterType='Optional',
-            direction='Output'
-        )
-
-        params = [
-            reviewer_ws_param, batch_job_file_param, production_ws_param,
-            job__id_param, job__started_date_param, job__owned_by_param,
-            log_path_param
-        ]
-
-        return params
-
-    def isLicensed(self):
-        try:
-            if arcpy.CheckExtension('datareviewer') != 'Available':
-                raise Exception
-        except Exception:
-            return False
-        return True
-
-    def execute(self, parameters, messages):
-        reviewer_ws = parameters[0].valueAsText
-        batch_job_file = parameters[1].valueAsText
-        production_ws = parameters[2].valueAsText
-        job__id = parameters[3].valueAsText
-        job__started_date = parameters[4].valueAsText
-        job__owned_by = parameters[5].valueAsText
-        log_path = parameters[6].valueAsText
-
-        if log_path == '':
-            log_path = None
-
-        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
-
-        run_batch_on_buffered_edits(
-            reviewer_ws,
-            batch_job_file,
-            production_ws,
-            job__id,
-            job__started_date,
-            job__owned_by,
-            logger=logger,
-            messages=messages
-        )
-
-        run_sql_validations(
-            reviewer_ws,
-            batch_job_file,
-            production_ws,
-            job__id,
-            job__started_date,
-            job__owned_by,
-            logger=logger,
-            messages=messages
-        )
-
-        return True
