@@ -98,7 +98,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             results = validate_by_roadway_type(roadway_type, attributes)
             for rule_rids in results.items():
                 violations[rule_rids[0]].append(*rule_rids[1])
-    
+
     session_name = get_reviewer_session_name(
         reviewer_ws,
         user,
@@ -107,17 +107,16 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         arcpy_messages=messages
     )
 
-    for rule_rids in violations.items():
-        roadway_level_attribute_result_to_reviewer_table(
-            violations,
-            version_milepoint_layer,
-            reviewer_ws,
-            session_name,
-            milepoint_fc,
-            level='info',
-            logger=logger,
-            arcpy_messages=messages
-        )
+    roadway_level_attribute_result_to_reviewer_table(
+        violations,
+        version_milepoint_layer,
+        reviewer_ws,
+        session_name,
+        milepoint_fc,
+        level='info',
+        logger=logger,
+        arcpy_messages=messages
+    )
 
 def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_layer, reviewer_ws,
                                                     session_name, origin_table,
@@ -129,7 +128,7 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             continue
         where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "')"
 
-        log_it('roadway_level_attribute_result where_clause={}'.format(where_clause),
+        log_it('{}: roadway_level_attribute_result where_clause={}'.format(rule_rids[0], where_clause),
             level='info', logger=logger, arcpy_messages=arcpy_messages)
 
         arcpy.SelectLayerByAttribute_management(
@@ -138,12 +137,6 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             where_clause=where_clause
         )
 
-        # in_memory_fc = 'in_memory\\fc_{}'.format(int(time.time()))
-
-        # arcpy.CopyFeatures_management(
-        #     versioned_layer,
-        #     in_memory_fc
-        # )
         in_memory_fc = to_in_memory_fc(versioned_layer)
 
         arcpy.WriteToReviewerTable_Reviewer(
@@ -184,14 +177,16 @@ def to_in_memory_fc(layer, new_field='ORIG_OBJECTID', check_fields=['ROUTE_ID', 
                 route_id = row[1]
                 new_field_value = oids[route_id]
                 curs.updateRow([new_field_value, route_id])
-    
+
     return in_memory_fc
 
 
 def validate_by_roadway_type(roadway_type, attributes):
-    # The attribute fields must be in the following order:
-    # signing, route_number, route_suffix, route_qualifier, parkway_flag, and roadway_feature
-    # Otherwise these validations are invalid!!!!!
+    """
+    The attribute fields must be in the following order:
+    signing, route_number, route_suffix, route_qualifier, parkway_flag, and roadway_feature
+    Otherwise these validations are invalid!!!!!
+    """
     rid, signing, route_number, route_suffix, route_qualifier, parkway_flag, roadway_feature = attributes
     if roadway_type not in [1, 2, 3, 4, 5]:
         raise AttributeError(
@@ -202,17 +197,20 @@ def validate_by_roadway_type(roadway_type, attributes):
     violations = defaultdict(list)
     if roadway_type == 1 or roadway_type == 2:     # Road or Ramp
         if signing:
-            violations['SIGNING must be null when ROADWAY_TYPE=Road'].append(rid)
+            violations['SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
         if route_number:
-            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE=Road'].append(rid)
+            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
         if route_suffix:
-            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE=Road'].append(rid)
+            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
         if route_qualifier != 10:    # 10 is "No Qualifier"
-            violations['ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE=Road'].append(rid)
+            violations[(
+                'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')'
+            )].append(rid)
         if parkway_flag == 'T':      # T is "Yes"
-            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE=Road'].append(rid)
+            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
         if roadway_feature:
-            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE=Road'].append(rid)
+            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+
     if roadway_type == 3:     # Route
         if not route_number:
             violations['ROUTE_NUMBER must not be null when ROADWAY_TYPE=Route'].append(rid)
@@ -223,6 +221,7 @@ def validate_by_roadway_type(roadway_type, attributes):
                 'ROUTE_NUMBER must be a \'900\' route (i.e. 9xx) when ' +
                 'ROADWAY_TYPE=Route and SIGNING is null'
             )].append(rid)
+
     if roadway_type == 5:    # Non-Mainline
         if signing:
             violations['SIGNING must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
@@ -308,7 +307,7 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
 def main(logger=None):
     if not logger:
         logger = common.initialize_logger(logging.INFO)
-    
+
     # Required DR inputs
     # reviewer_ws = r'D:\Validation\dev\2019-03-27_Dev.gdb'
     reviewer_ws = r'D:\Validation\dev\2019-09-17_Dev.gdb'
