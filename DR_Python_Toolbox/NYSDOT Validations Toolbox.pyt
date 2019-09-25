@@ -1,6 +1,8 @@
+from collections import defaultdict
 import datetime
 import logging
 import os
+import re
 import time
 import traceback
 
@@ -14,7 +16,7 @@ class Toolbox(object):
 
         self.tools = [
             ExecuteReviewerBatchJobOnEdits, ExecuteNetworkSQLValidations,
-            ExecuteAllValidations,
+            ExecuteRoadwayLevelAttributeValidations, ExecuteAllValidations,
         ]
 
 
@@ -127,6 +129,42 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
         return True
 
 
+class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
+    def __init__(self):
+        self.label = 'Execute Roadway Level Attribute Validations'
+        self.description = (
+            'Run Python validations against routes that are newly created and ' +
+            'edited since the creation of the current version. The validations ' +
+            'ensure that the attributes on Milepoint are correct for a given roadway type'
+        )
+        self.canRunInBackground = False
+
+    def execute(self, parameters, messages):
+        job__started_date = parameters[0].valueAsText
+        job__owned_by = parameters[1].valueAsText
+        job__id = parameters[2].valueAsText
+        production_ws = parameters[3].valueAsText
+        reviewer_ws = parameters[4].valueAsText
+        log_path = parameters[5].valueAsText
+
+        if log_path == '':
+            log_path = None
+
+        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+
+        run_roadway_level_attribute_checks(
+            reviewer_ws,
+            production_ws,
+            job__id,
+            job__started_date,
+            job__owned_by,
+            logger=logger,
+            messages=messages
+        )
+
+        return True
+
+
 class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
     def __init__(self):
         self.label = 'Execute Reviewer Batch Job on R&H Edits'
@@ -226,6 +264,16 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         )
 
         run_sql_validations(
+            reviewer_ws,
+            production_ws,
+            job__id,
+            job__started_date,
+            job__owned_by,
+            logger=logger,
+            messages=messages
+        )
+
+        run_roadway_level_attribute_checks(
             reviewer_ws,
             production_ws,
             job__id,
@@ -537,6 +585,207 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         raise exc
 
     return True
+
+def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
+                                       job__started_date, job__owned_by,
+                                       logger=None, messages=None):
+    if not logger:
+        logger = initialize_logger(log_path=None, log_level=logging.INFO)
+
+    log_it(
+        'Calling run_roadway_level_attribute_checks(): Selecting newly created ' +
+        'or edited routes by this user in this version and validating their attributes',
+        level='info', logger=logger, arcpy_messages=messages)
+
+    arcpy.CheckOutExtension('datareviewer')
+
+    # Set the database connection as the workspace. All table and FC references come from here
+    arcpy.env.workspace = production_ws
+
+    # Assemble the version name from its component parts. This is much easier than passing in
+    #  the version name, as version names contain " and \ characters :-|
+    if '\\' in job__owned_by:
+        user = job__owned_by.split('\\')[1]
+    else:
+        user = job__owned_by
+    production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
+        user=user,
+        job_id=job__id
+    )
+    log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
+            '{}'.format(production_ws_version)),
+            level='debug', logger=logger, arcpy_messages=messages)
+
+    version_names = arcpy.ListVersions(production_ws)
+    if not production_ws_version in version_names:
+        raise AttributeError(
+            'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
+                production_ws_version,
+                production_ws
+            ) + ' Available versions include: {}'.format(version_names)
+        )
+
+    milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
+    if len(milepoint_fcs) == 1:
+        milepoint_fc = milepoint_fcs[0]
+    else:
+        raise ValueError(
+            'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
+            'Selected FCs: {}'.format(milepoint_fcs)
+        )
+
+    where_clause = '(EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\')'.format(
+        date=job__started_date,
+        user=user
+    )
+    log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
+        level='debug', logger=logger, arcpy_messages=messages)
+
+    # Explicitly change version to the input version, as the SDE file could point to anything
+    sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
+        milepoint_fc,
+        'milepoint_layer_{}'.format(int(time.time()))
+    )
+    version_milepoint_layer = arcpy.ChangeVersion_management(
+        sde_milepoint_layer,
+        'TRANSACTIONAL',
+        version_name=production_ws_version
+    )
+    version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
+        version_milepoint_layer,
+        'NEW_SELECTION',
+        where_clause=where_clause
+    )
+    log_it('{count} features selected'.format(
+        count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
+        level='debug', logger=logger, arcpy_messages=messages)
+
+    attribute_fields = [
+        'ROADWAY_TYPE', 'ROUTE_ID', 'SIGNING', 'ROUTE_NUMBER', 'ROUTE_SUFFIX',
+        'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE',
+    ]
+    violations = defaultdict(list)
+    with arcpy.da.SearchCursor(version_select_milepoint_layer, attribute_fields) as curs:
+        for row in curs:
+            roadway_type = row[0]
+            attributes = row[1:]
+            results = validate_by_roadway_type(roadway_type, attributes)
+            for rule_rids in results.items():
+                violations[rule_rids[0]].append(*rule_rids[1])
+
+    session_name = get_reviewer_session_name(
+        reviewer_ws,
+        user,
+        job__id,
+        logger=logger,
+        arcpy_messages=messages
+    )
+
+    roadway_level_attribute_result_to_reviewer_table(
+        violations,
+        version_milepoint_layer,
+        reviewer_ws,
+        session_name,
+        milepoint_fc,
+        level='info',
+        logger=logger,
+        arcpy_messages=messages
+    )
+
+    return True
+
+def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_layer, reviewer_ws,
+                                                    session_name, origin_table,
+                                                    level='info', logger=None, arcpy_messages=None):
+    for rule_rids in result_dict.items():
+        check_description = rule_rids[0]
+        route_ids = rule_rids[1]
+        if not route_ids:
+            continue
+        where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "')"
+
+        log_it('{}: roadway_level_attribute_result where_clause={}'.format(rule_rids[0], where_clause),
+            level='info', logger=logger, arcpy_messages=arcpy_messages)
+
+        arcpy.SelectLayerByAttribute_management(
+            versioned_layer,
+            'NEW_SELECTION',
+            where_clause=where_clause
+        )
+
+        in_memory_fc = to_in_memory_fc(versioned_layer)
+
+        arcpy.WriteToReviewerTable_Reviewer(
+            reviewer_ws,
+            session_name,
+            in_memory_fc,
+            'ORIG_OBJECTID',
+            origin_table,
+            check_description
+        )
+        log_it('', level='gp', logger=logger, arcpy_messages=arcpy_messages)
+        try:
+            arcpy.Delete_management(in_memory_fc)
+        except:
+            pass
+    return True
+
+def validate_by_roadway_type(roadway_type, attributes):
+    """
+    The attribute fields must be in the following order:
+    signing, route_number, route_suffix, route_qualifier, parkway_flag, and roadway_feature
+    Otherwise these validations are invalid!!!!!
+    """
+    rid, signing, route_number, route_suffix, route_qualifier, parkway_flag, roadway_feature = attributes
+    if roadway_type not in [1, 2, 3, 4, 5]:
+        raise AttributeError(
+            'ROADWAY_TYPE is outside of the valid range. Must be one of (1, 2, 3, 4 ,5). ' +
+            'Currently ROADWAY_TYPE={}'.format(roadway_type)
+        )
+
+    violations = defaultdict(list)
+    if roadway_type == 1 or roadway_type == 2:     # Road or Ramp
+        if signing:
+            violations['SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+        if route_number:
+            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+        if route_suffix:
+            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+        if route_qualifier != 10:    # 10 is "No Qualifier"
+            violations[(
+                'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')'
+            )].append(rid)
+        if parkway_flag == 'T':      # T is "Yes"
+            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+        if roadway_feature:
+            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+
+    if roadway_type == 3:     # Route
+        if not route_number:
+            violations['ROUTE_NUMBER must not be null when ROADWAY_TYPE=Route'].append(rid)
+        if roadway_feature:
+            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE=Route'].append(rid)
+        if not signing and not re.match(r'^9\d{2}$', str(route_number)):
+            violations[(
+                'ROUTE_NUMBER must be a \'900\' route (i.e. 9xx) when ' +
+                'ROADWAY_TYPE=Route and SIGNING is null'
+            )].append(rid)
+
+    if roadway_type == 5:    # Non-Mainline
+        if signing:
+            violations['SIGNING must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+        if route_number:
+            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+        if route_suffix:
+            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+        if route_qualifier != 10:   # 10 is "No Qualifier"
+            violations['ROUTE_QUALIFIER must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+        if parkway_flag == 'T':      # T is "Yes"
+            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE=Non-Mainline'].append(rid)
+        if not roadway_feature:
+            violations['ROADWAY_FEATURE must not be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+
+    return violations
 
 def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_messages=None):
     reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
