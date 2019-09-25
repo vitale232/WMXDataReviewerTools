@@ -12,7 +12,7 @@ import arcpy
 class Toolbox(object):
     def __init__(self):
         self.label = 'NYSDOT Validations Toolbox'
-        self.alias = 'revbatch'
+        self.alias = 'validate'
 
         self.tools = [
             ExecuteReviewerBatchJobOnEdits, ExecuteNetworkSQLValidations,
@@ -220,8 +220,9 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
     def __init__(self):
         self.label = 'Execute All Validations'
         self.description = (
-            'Run the Data Reviewer batch job and Milepoint SQL validations and ' +
-            'save the results to the Data Reviewer session.'
+            'Run the Data Reviewer batch job, Milepoint SQL validations and ' +
+            'Milepoint Roadway Level Attribute validations and save the results ' +
+            'to the Data Reviewer session.'
         )
         self.canRunInBackground = False
 
