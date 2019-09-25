@@ -118,6 +118,8 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         arcpy_messages=messages
     )
 
+    return True
+
 def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_layer, reviewer_ws,
                                                     session_name, origin_table,
                                                     level='info', logger=None, arcpy_messages=None):

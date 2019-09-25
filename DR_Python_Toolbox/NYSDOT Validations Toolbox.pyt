@@ -26,38 +26,6 @@ class NYSDOTValidationsMixin(object):
     """
 
     def getParameterInfo(self):
-        reviewer_ws_param = arcpy.Parameter(
-            displayName='Reviewer Workspace',
-            name='reviewer_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        batch_job_file_param = arcpy.Parameter(
-            displayName='Reviewer Batch Job Filepath (.rbj)',
-            name='batch_job_file',
-            datatype='DEFile',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        production_ws_param = arcpy.Parameter(
-            displayName='Production Workspace (SDE File)',
-            name='production_ws',
-            datatype='DEWorkspace',
-            parameterType='Required',
-            direction='Input'
-        )
-
-        job__id_param = arcpy.Parameter(
-            displayName='Workflow Manager Job ID',
-            name='job__id',
-            datatype='GPString',
-            parameterType='Required',
-            direction='Input'
-        )
-
         job__started_date_param = arcpy.Parameter(
             displayName='Edits Start Date (e.g. WMX Job Creation Date)',
             name='job__started_date',
@@ -74,18 +42,42 @@ class NYSDOTValidationsMixin(object):
             direction='Input'
         )
 
+        job__id_param = arcpy.Parameter(
+            displayName='Workflow Manager Job ID',
+            name='job__id',
+            datatype='GPString',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        production_ws_param = arcpy.Parameter(
+            displayName='Production Workspace (SDE File)',
+            name='production_ws',
+            datatype='DEWorkspace',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        reviewer_ws_param = arcpy.Parameter(
+            displayName='Reviewer Workspace',
+            name='reviewer_ws',
+            datatype='DEWorkspace',
+            parameterType='Required',
+            direction='Input'
+        )
+
         log_path_param = arcpy.Parameter(
             displayName='Output Logfile Path',
             name='log_path',
             datatype='DETextfile',
             parameterType='Optional',
-            direction='Output'
+            direction='Output',
+            category='Logging'
         )
 
         params = [
-            reviewer_ws_param, batch_job_file_param, production_ws_param,
-            job__id_param, job__started_date_param, job__owned_by_param,
-            log_path_param
+            job__started_date_param, job__owned_by_param, job__id_param,
+            production_ws_param, reviewer_ws_param, log_path_param
         ]
 
         return params
@@ -110,13 +102,12 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
         self.canRunInBackground = False
 
     def execute(self, parameters, messages):
-        reviewer_ws = parameters[0].valueAsText
-        batch_job_file = parameters[1].valueAsText
-        production_ws = parameters[2].valueAsText
-        job__id = parameters[3].valueAsText
-        job__started_date = parameters[4].valueAsText
-        job__owned_by = parameters[5].valueAsText
-        log_path = parameters[6].valueAsText
+        job__started_date = parameters[0].valueAsText
+        job__owned_by = parameters[1].valueAsText
+        job__id = parameters[2].valueAsText
+        production_ws = parameters[3].valueAsText
+        reviewer_ws = parameters[4].valueAsText
+        log_path = parameters[5].valueAsText
 
         if log_path == '':
             log_path = None
@@ -125,7 +116,6 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
 
         run_sql_validations(
             reviewer_ws,
-            batch_job_file,
             production_ws,
             job__id,
             job__started_date,
@@ -147,14 +137,27 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
         )
         self.canRunInBackground = False
 
+    def getParameterInfo(self):
+        params = super(ExecuteReviewerBatchJobOnEdits, self).getParameterInfo()
+
+        batch_job_file_param = arcpy.Parameter(
+            displayName='Reviewer Batch Job Filepath (.rbj)',
+            name='batch_job_file',
+            datatype='DEFile',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        return params + [ batch_job_file_param ]
+
     def execute(self, parameters, messages):
-        reviewer_ws = parameters[0].valueAsText
-        batch_job_file = parameters[1].valueAsText
-        production_ws = parameters[2].valueAsText
-        job__id = parameters[3].valueAsText
-        job__started_date = parameters[4].valueAsText
-        job__owned_by = parameters[5].valueAsText
-        log_path = parameters[6].valueAsText
+        job__started_date = parameters[0].valueAsText
+        job__owned_by = parameters[1].valueAsText
+        job__id = parameters[2].valueAsText
+        production_ws = parameters[3].valueAsText
+        reviewer_ws = parameters[4].valueAsText
+        log_path = parameters[5].valueAsText
+        batch_job_file = parameters[6].valueAsText
 
         if log_path == '':
             log_path = None
@@ -184,14 +187,27 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         )
         self.canRunInBackground = False
 
+    def getParameterInfo(self):
+        params = super(ExecuteAllValidations, self).getParameterInfo()
+
+        batch_job_file_param = arcpy.Parameter(
+            displayName='Reviewer Batch Job Filepath (.rbj)',
+            name='batch_job_file',
+            datatype='DEFile',
+            parameterType='Required',
+            direction='Input'
+        )
+
+        return params + [ batch_job_file_param ]
+
     def execute(self, parameters, messages):
-        reviewer_ws = parameters[0].valueAsText
-        batch_job_file = parameters[1].valueAsText
-        production_ws = parameters[2].valueAsText
-        job__id = parameters[3].valueAsText
-        job__started_date = parameters[4].valueAsText
-        job__owned_by = parameters[5].valueAsText
-        log_path = parameters[6].valueAsText
+        job__started_date = parameters[0].valueAsText
+        job__owned_by = parameters[1].valueAsText
+        job__id = parameters[2].valueAsText
+        production_ws = parameters[3].valueAsText
+        reviewer_ws = parameters[4].valueAsText
+        log_path = parameters[5].valueAsText
+        batch_job_file = parameters[6].valueAsText
 
         if log_path == '':
             log_path = None
@@ -211,7 +227,6 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
 
         run_sql_validations(
             reviewer_ws,
-            batch_job_file,
             production_ws,
             job__id,
             job__started_date,
@@ -371,8 +386,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
         raise exc
 
-def run_sql_validations(reviewer_ws, batch_job_file,
-                        production_ws, job__id,
+def run_sql_validations(reviewer_ws, production_ws, job__id,
                         job__started_date, job__owned_by,
                         logger=None, messages=None):
     try:
@@ -400,7 +414,7 @@ def run_sql_validations(reviewer_ws, batch_job_file,
             'ELRS in HDS_GENERAL_EDITING_JOB_{} and writing '.format(job__id)) +
             'results to Data Reviewer session',
                 level='info', logger=logger, arcpy_messages=messages)
-        
+
         arcpy.env.workspace = production_ws
 
         if '\\' in job__owned_by:
@@ -414,7 +428,7 @@ def run_sql_validations(reviewer_ws, batch_job_file,
         log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
                 '{}'.format(production_ws_version)),
                 level='debug', logger=logger, arcpy_messages=messages)
-        
+
         version_names = arcpy.ListVersions(production_ws)
         if not production_ws_version in version_names:
             raise AttributeError(
@@ -437,7 +451,6 @@ def run_sql_validations(reviewer_ws, batch_job_file,
 
         unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
         unique_co_dir_result = connection.execute(unique_co_dir_sql)
-        log_it(str(unique_co_dir_result), arcpy_messages=messages, logger=logger)
 
         if isinstance(unique_co_dir_result, bool):
             unique_co_dir_result = []
@@ -569,7 +582,7 @@ def to_in_memory_fc(layer, new_field='ORIG_OBJECTID', check_fields=['ROUTE_ID', 
                 route_id = row[1]
                 new_field_value = oids[route_id]
                 curs.updateRow([new_field_value, route_id])
-    
+
     return in_memory_fc
 
 def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_ws,
@@ -624,7 +637,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     ]
     with arcpy.da.SearchCursor(versioned_layer, fields) as curs:
         milepoint_attrs = {row[0]: list(row[1:]) for row in curs}
-     
+
     unique_attrs = [list(x) for x in set(tuple(x) for x in milepoint_attrs.values())]
     milepoint_attr_values = milepoint_attrs.values()
     unique_attrs_occurrence_count = [
@@ -634,7 +647,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
         milepoint_attrs.keys()[milepoint_attrs.values().index(row[1])] for row in unique_attrs_occurrence_count
         if row[0] == 1
     ]
-    
+
     output_where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "')"
 
     log_it('{}: SQL Results where_clause: {}'.format(log_name, output_where_clause),
