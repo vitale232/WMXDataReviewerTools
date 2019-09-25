@@ -184,7 +184,6 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         )
         self.canRunInBackground = False
 
-
     def execute(self, parameters, messages):
         reviewer_ws = parameters[0].valueAsText
         batch_job_file = parameters[1].valueAsText
@@ -402,8 +401,6 @@ def run_sql_validations(reviewer_ws, batch_job_file,
             'results to Data Reviewer session',
                 level='info', logger=logger, arcpy_messages=messages)
         
-        arcpy.CheckOutExtension('datareviewer')
-
         arcpy.env.workspace = production_ws
 
         if '\\' in job__owned_by:
@@ -444,6 +441,8 @@ def run_sql_validations(reviewer_ws, batch_job_file,
 
         if isinstance(unique_co_dir_result, bool):
             unique_co_dir_result = []
+        if isinstance(unique_rdwy_attrs_result, bool):
+            unique_rdwy_attrs_result = []
 
         if len(unique_rdwy_attrs_result) > 0 or len(unique_co_dir_result) > 0:
             # Create a versioned arcpy feature layer of the Milepoint feature class
@@ -547,6 +546,32 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
         raise ValueError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
     return reviewer_session
 
+def to_in_memory_fc(layer, new_field='ORIG_OBJECTID', check_fields=['ROUTE_ID', 'OBJECTID']):
+    in_memory_fc = 'in_memory\\fc_{}'.format(int(time.time()))
+
+    arcpy.CopyFeatures_management(
+        layer,
+        in_memory_fc
+    )
+
+    field_names = [field.name for field in arcpy.ListFields(layer)]
+
+    if not new_field in field_names:
+        arcpy.AddField_management(
+            in_memory_fc,
+            new_field,
+            'LONG'
+        )
+        oids = {row[0]: row[1] for row in arcpy.da.SearchCursor(layer, check_fields)}
+        update_fields = [new_field, check_fields[0]]
+        with arcpy.da.UpdateCursor(in_memory_fc, update_fields) as curs:
+            for row in curs:
+                route_id = row[1]
+                new_field_value = oids[route_id]
+                curs.updateRow([new_field_value, route_id])
+    
+    return in_memory_fc
+
 def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_ws,
                                         session_name, origin_table, check_description,
                                         dot_id_index=0, county_order_index=1,
@@ -569,17 +594,13 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
         where_clause=where_clause
     )
 
-    in_memory_fc = 'in_memory\\fc_{}'.format(int(time.time()))
-    arcpy.CopyFeatures_management(
-        versioned_layer,
-        in_memory_fc
-    )
+    in_memory_fc = to_in_memory_fc(versioned_layer)
 
     arcpy.WriteToReviewerTable_Reviewer(
         reviewer_ws,
         session_name,
         in_memory_fc,
-        'OBJECTID',
+        'ORIG_OBJECTID',
         origin_table,
         check_description
     )
@@ -625,17 +646,13 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
         where_clause=output_where_clause
     )
 
-    in_memory_fc = 'in_memory\\fc_{}'.format(int(time.time()))
-    arcpy.CopyFeatures_management(
-        versioned_layer,
-        in_memory_fc
-    )
+    in_memory_fc = to_in_memory_fc(versioned_layer)
 
     arcpy.WriteToReviewerTable_Reviewer(
         reviewer_ws,
         session_name,
         in_memory_fc,
-        'OBJECTID',
+        'ORIG_OBJECTID',
         origin_table,
         check_description
     )
