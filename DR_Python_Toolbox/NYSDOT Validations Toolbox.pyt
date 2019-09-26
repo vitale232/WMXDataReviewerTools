@@ -746,6 +746,8 @@ def validate_by_roadway_type(roadway_type, attributes):
 
     violations = defaultdict(list)
 
+    if not re.match(r'^\d{9}$', str(rid)):
+        violations['ROUTE_ID must be a nine digit number'].append(rid)
     if not re.match(r'^\d{6}$', str(dot_id)):
         violations['DOT_ID must be a six digit number'].append(rid)
     if not re.match(r'^\d{2}$', str(county_order)):
