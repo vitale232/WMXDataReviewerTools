@@ -662,8 +662,8 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         level='debug', logger=logger, arcpy_messages=messages)
 
     attribute_fields = [
-        'ROADWAY_TYPE', 'ROUTE_ID', 'SIGNING', 'ROUTE_NUMBER', 'ROUTE_SUFFIX',
-        'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE',
+        'ROADWAY_TYPE', 'ROUTE_ID', 'DOT_ID', 'COUNTY_ORDER', 'SIGNING', 'ROUTE_NUMBER',
+        'ROUTE_SUFFIX', 'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE',
     ]
     violations = defaultdict(list)
     with arcpy.da.SearchCursor(version_select_milepoint_layer, attribute_fields) as curs:
@@ -737,7 +737,7 @@ def validate_by_roadway_type(roadway_type, attributes):
     signing, route_number, route_suffix, route_qualifier, parkway_flag, and roadway_feature
     Otherwise these validations are invalid!!!!!
     """
-    rid, signing, route_number, route_suffix, route_qualifier, parkway_flag, roadway_feature = attributes
+    rid, dot_id, county_order, signing, route_number, route_suffix, route_qualifier, parkway_flag, roadway_feature = attributes
     if roadway_type not in [1, 2, 3, 4, 5]:
         raise AttributeError(
             'ROADWAY_TYPE is outside of the valid range. Must be one of (1, 2, 3, 4 ,5). ' +
@@ -745,6 +745,12 @@ def validate_by_roadway_type(roadway_type, attributes):
         )
 
     violations = defaultdict(list)
+
+    if not re.match(r'^\d{6}$', str(dot_id)):
+        violations['DOT_ID must be a six digit number'].append(rid)
+    if not re.match(r'^\d{2}$', str(county_order)):
+        violations['COUNTY_ORDER must be a zero padded two digit number (e.g. \'01\')'].append(rid)
+
     if roadway_type == 1 or roadway_type == 2:     # Road or Ramp
         if signing:
             violations['SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
