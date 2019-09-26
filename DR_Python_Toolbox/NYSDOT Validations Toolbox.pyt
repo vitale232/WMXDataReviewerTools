@@ -69,7 +69,7 @@ class NYSDOTValidationsMixin(object):
         )
 
         log_path_param = arcpy.Parameter(
-            displayName='Output Logfile Path',
+            displayName='Output Logfile Path (.txt)',
             name='log_path',
             datatype='DETextfile',
             parameterType='Optional',
@@ -488,7 +488,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
             )
 
         log_it(('Connecting to the production database and executing ' +
-            'SQL validations: database {} | version: {}'.format(
+            'SQL validations -> database: {} | version: {}'.format(
                 production_ws, production_ws_version
             )), level='info', logger=logger, arcpy_messages=messages)
 
@@ -881,6 +881,9 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
                                             dot_id_index=0, log_name='', level='info',
                                             logger=None, arcpy_messages=None):
     dot_ids = [result_row[dot_id_index] for result_row in result_list]
+    # Account for the rare case where a DOT_ID does not exist, which will be caught in another validation
+    dot_ids = ['' for dot_id in dot_ids if dot_id is None]
+
     where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "')"
     arcpy.SelectLayerByAttribute_management(
         versioned_layer,
