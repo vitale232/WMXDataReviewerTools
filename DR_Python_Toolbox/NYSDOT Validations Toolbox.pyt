@@ -360,8 +360,15 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             'NEW_SELECTION',
             where_clause=where_clause
         )
-        log_it('{count} features selected'.format(
-            count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
+
+        feature_count = int(arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0))
+        if feature_count == 0:
+            log_it(('0 features were identified as edited since {}. '.format(job__started_date) +
+                'Exiting without running validations!'),
+                level='warn', logger=logger, arcpy_messages=messages)
+            return False
+
+        log_it('{count} features selected'.format(count=feature_count),
             level='debug', logger=logger, arcpy_messages=messages)
 
         # Create buffer polygons of the edited features. These will be used as the DR analysis_area
@@ -381,25 +388,13 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
 
         # Data Reviewer WMX tokens are only supported in the default DR Step Types. We must back out
         #  the session name from the DR tables
-        reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
-            user=user,
-            job_id=job__id
+        reviewer_session = get_reviewer_session_name(
+            reviewer_ws,
+            user,
+            job__id,
+            logger=logger,
+            arcpy_messages=messages
         )
-        reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
-        session_table = os.path.join(reviewer_ws, 'GDB_REVSESSIONTABLE')
-        with arcpy.da.SearchCursor(session_table, reviewer_fields, where_clause=reviewer_where_clause) as curs:
-            for row in curs:
-                session_id = row[0]
-
-        if session_id:
-            reviewer_session = 'Session {session_id} : {job_id}'.format(
-                session_id=session_id,
-                job_id=job__id
-            )
-            log_it('Reviewer session name determined to be \'{}\''.format(reviewer_session),
-                    level='debug', logger=logger, arcpy_messages=messages)
-        else:
-            raise ValueError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
 
         reviewer_results = arcpy.ExecuteReviewerBatchJob_Reviewer(
             reviewer_ws,
@@ -752,6 +747,11 @@ def validate_by_roadway_type(roadway_type, attributes):
         violations['DOT_ID must be a six digit number'].append(rid)
     if not re.match(r'^\d{2}$', str(county_order)):
         violations['COUNTY_ORDER must be a zero padded two digit number (e.g. \'01\')'].append(rid)
+    
+    if int(county_order) == 0:
+        violations['COUNTY_ORDER must be greater than \'00\''].append(rid)
+    if int(county_order) > 28:
+        violations['COUNTY_ORDER should be less than \'29\''].append(rid)
 
     if roadway_type == 1 or roadway_type == 2:     # Road or Ramp
         if signing:
@@ -969,6 +969,11 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
             logging.error(message)
         if arcpy_messages:
             arcpy_messages.addErrorMessage(message)
+    elif level.lower() == 'warn':
+        if logger:
+            logger.warn(message)
+        if arcpy_messages:
+            arcpy_messages.addWarningMessage(message)
     elif level.lower() == 'gp':
         if arcpy_messages:
             arcpy_messages.addGPMessages()
