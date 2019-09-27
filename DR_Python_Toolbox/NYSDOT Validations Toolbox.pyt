@@ -29,7 +29,7 @@ class NYSDOTValidationsMixin(object):
 
     def getParameterInfo(self):
         job__started_date_param = arcpy.Parameter(
-            displayName='Edits Start Date (e.g. WMX Job Creation Date)',
+            displayName='Edits Start Date (i.e. WMX Job Creation Date)',
             name='job__started_date',
             datatype='GPDate',
             parameterType='Required',
@@ -37,7 +37,7 @@ class NYSDOTValidationsMixin(object):
         )
 
         job__owned_by_param = arcpy.Parameter(
-            displayName='Editor Username (e.g. WMX Owned by User)',
+            displayName='Editor Username (i.e. WMX Owned by User)',
             name='job__owned_by',
             datatype='GPString',
             parameterType='Required',
