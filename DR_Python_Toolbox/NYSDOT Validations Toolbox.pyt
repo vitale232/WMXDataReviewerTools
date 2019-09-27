@@ -764,16 +764,16 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             where_clause = 'SIGNING IS NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
 
         elif check_description == 'ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2)'
+            where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
         
         elif check_description == 'ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2)'
+            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
         
         elif check_description == 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROUTE_QUALIFIER <> 10 AND ROADWAY_TYPE IN (1, 2)'
+            where_clause = 'ROUTE_QUALIFIER <> 10 AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
         
         elif check_description == 'PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2)'
+            where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
 
         else:
             where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
