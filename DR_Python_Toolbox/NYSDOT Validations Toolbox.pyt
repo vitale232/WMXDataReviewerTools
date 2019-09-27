@@ -988,6 +988,11 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     log_it('{}: SQL Results where_clause: {}'.format(log_name, output_where_clause),
         level='info', logger=logger, arcpy_messages=arcpy_messages)
 
+    if len(route_ids) == 0:
+        log_it('0 violations were found. Exiting with success code.',
+            level='warn', logger=logger, arcpy_messages=arcpy_messages)
+        return True
+
     arcpy.SelectLayerByAttribute_management(
         versioned_layer,
         'NEW_SELECTION',
