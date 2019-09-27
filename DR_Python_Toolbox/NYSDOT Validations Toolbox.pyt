@@ -321,6 +321,15 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
 
         return True
 
+
+class VersionDoesNotExistError(Exception):
+    pass
+
+
+class NoSessionIDError(Exception):
+    pass
+
+
 def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 production_ws, job__id,
                                 job__started_date, job__owned_by,
@@ -684,9 +693,6 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
 
     return True
 
-class VersionDoesNotExistError(Exception):
-    pass
-
 def check_for_version(production_ws_version, production_ws, version_names):
     if not production_ws_version in version_names:
         raise VersionDoesNotExistError(
@@ -793,9 +799,9 @@ def validate_by_roadway_type(roadway_type, attributes):
     if not re.match(r'^\d{2}$', str(county_order)):
         violations['COUNTY_ORDER must be a zero padded two digit number (e.g. \'01\')'].append(rid)
     
-    if int(county_order) == 0:
+    if county_order and int(county_order) == 0:
         violations['COUNTY_ORDER must be greater than \'00\''].append(rid)
-    if int(county_order) > 28:
+    if county_order and int(county_order) > 28:
         violations['COUNTY_ORDER should be less than \'29\''].append(rid)
 
     if roadway_type == 1 or roadway_type == 2:     # Road or Ramp
@@ -841,8 +847,6 @@ def validate_by_roadway_type(roadway_type, attributes):
 
     return violations
 
-class NoSessionIDError(Exception):
-    pass
 
 def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
     reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
@@ -1060,4 +1064,3 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
         raise ValueError('Parameter \'level\' must be one of (info, debug, error, gp)')
 
     return True
-
