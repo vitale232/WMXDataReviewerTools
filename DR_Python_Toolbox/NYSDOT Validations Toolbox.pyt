@@ -139,6 +139,19 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         )
         self.canRunInBackground = False
 
+    def getParameterInfo(self):
+        params = super(ExecuteRoadwayLevelAttributeValidations, self).getParameterInfo()
+
+        full_db_flag_param = arcpy.Parameter(
+            displayName='Run Validations on Full Geodatabase (Instead of edits)',
+            name='full_db_flag',
+            datatype='GPBoolean',
+            parameterType='Optional',
+            direction='Input'
+        )
+
+        return params + [ full_db_flag_param ]
+
     def execute(self, parameters, messages):
         job__started_date = parameters[0].valueAsText
         job__owned_by = parameters[1].valueAsText
@@ -146,6 +159,12 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         production_ws = parameters[3].valueAsText
         reviewer_ws = parameters[4].valueAsText
         log_path = parameters[5].valueAsText
+        full_db_flag = parameters[6].valueAsText
+
+        if full_db_flag == 'true':
+            full_db_flag = True
+        else:
+            full_db_flag = False
 
         if log_path == '':
             log_path = None
@@ -158,6 +177,7 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            full_db_flag,
             logger=logger,
             messages=messages
         )
@@ -237,7 +257,15 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             direction='Input'
         )
 
-        return params + [ batch_job_file_param ]
+        full_db_flag_param = arcpy.Parameter(
+            displayName='Run Validations on Full Geodatabase (Applies to Rdwy Attrs Validations)',
+            name='full_db_flag',
+            datatype='GPBoolean',
+            parameterType='Optional',
+            direction='Input'
+        )
+
+        return params + [ batch_job_file_param, full_db_flag_param ]
 
     def execute(self, parameters, messages):
         job__started_date = parameters[0].valueAsText
@@ -247,6 +275,12 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         reviewer_ws = parameters[4].valueAsText
         log_path = parameters[5].valueAsText
         batch_job_file = parameters[6].valueAsText
+        full_db_flag = parameters[7].valueAsText
+
+        if full_db_flag == 'true':
+            full_db_flag = True
+        else:
+            full_db_flag = False
 
         if log_path == '':
             log_path = None
@@ -280,6 +314,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            full_db_flag,
             logger=logger,
             messages=messages
         )
@@ -303,29 +338,13 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         # Set the database connection as the workspace. All table and FC references come from here
         arcpy.env.workspace = production_ws
 
-        # Assemble the version name from its component parts. This is much easier than passing in
-        #  the version name, as version names contain " and \ characters :-|
-        if '\\' in job__owned_by:
-            user = job__owned_by.split('\\')[1]
-        else:
-            user = job__owned_by
-        production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
-            user=user,
-            job_id=job__id
+        user, production_ws_version = get_user_and_version(
+            job__owned_by,
+            job__id,
+            production_ws,
+            logger=None,
+            arcpy_messages=None
         )
-        log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
-                '{}'.format(production_ws_version)),
-                level='debug', logger=logger, arcpy_messages=messages)
-
-        # Check that the production workspace contains the production workspace version
-        version_names = arcpy.ListVersions(production_ws)
-        if not production_ws_version in version_names:
-            raise AttributeError(
-                'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
-                    production_ws_version,
-                    production_ws
-                ) + ' Available versions include: {}'.format(version_names)
-            )
 
         # Select the milepoint LRS feature class from the workspace
         milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
@@ -338,9 +357,9 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             )
 
         # Filter out edits made by this user on this version since its creation
-        where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\''.format(
+        where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
             date=job__started_date,
-            user=user
+            user=user.upper()
         )
         log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
@@ -461,26 +480,13 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         arcpy.env.workspace = production_ws
 
-        if '\\' in job__owned_by:
-            user = job__owned_by.split('\\')[1]
-        else:
-            user = job__owned_by
-        production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
-            user=user,
-            job_id=job__id
+        user, production_ws_version = get_user_and_version(
+            job__owned_by,
+            job__id,
+            production_ws,
+            logger=None,
+            arcpy_messages=None
         )
-        log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
-                '{}'.format(production_ws_version)),
-                level='debug', logger=logger, arcpy_messages=messages)
-
-        version_names = arcpy.ListVersions(production_ws)
-        if not production_ws_version in version_names:
-            raise AttributeError(
-                'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
-                    production_ws_version,
-                    production_ws
-                ) + ' Available versions include: {}'.format(version_names)
-            )
 
         log_it(('Connecting to the production database and executing ' +
             'SQL validations -> database: {} | version: {}'.format(
@@ -583,7 +589,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
     return True
 
 def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
-                                       job__started_date, job__owned_by,
+                                       job__started_date, job__owned_by, full_db_flag,
                                        logger=None, messages=None):
     if not logger:
         logger = initialize_logger(log_path=None, log_level=logging.INFO)
@@ -598,28 +604,13 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
     # Set the database connection as the workspace. All table and FC references come from here
     arcpy.env.workspace = production_ws
 
-    # Assemble the version name from its component parts. This is much easier than passing in
-    #  the version name, as version names contain " and \ characters :-|
-    if '\\' in job__owned_by:
-        user = job__owned_by.split('\\')[1]
-    else:
-        user = job__owned_by
-    production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
-        user=user,
-        job_id=job__id
+    user, production_ws_version = get_user_and_version(
+        job__owned_by,
+        job__id,
+        production_ws,
+        logger=logger,
+        arcpy_messages=messages
     )
-    log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
-            '{}'.format(production_ws_version)),
-            level='debug', logger=logger, arcpy_messages=messages)
-
-    version_names = arcpy.ListVersions(production_ws)
-    if not production_ws_version in version_names:
-        raise AttributeError(
-            'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
-                production_ws_version,
-                production_ws
-            ) + ' Available versions include: {}'.format(version_names)
-        )
 
     milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
     if len(milepoint_fcs) == 1:
@@ -630,10 +621,13 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             'Selected FCs: {}'.format(milepoint_fcs)
         )
 
-    where_clause = '(EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\')'.format(
-        date=job__started_date,
-        user=user
-    )
+    if full_db_flag:
+        where_clause = None
+    else:
+        where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
+            date=job__started_date,
+            user=user.upper()
+        )
     log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
         level='debug', logger=logger, arcpy_messages=messages)
 
@@ -690,6 +684,57 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
 
     return True
 
+class VersionDoesNotExistError(Exception):
+    pass
+
+def check_for_version(production_ws_version, production_ws, version_names):
+    if not production_ws_version in version_names:
+        raise VersionDoesNotExistError(
+            'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
+                production_ws_version,
+                production_ws
+            ) + ' Available versions include: {}'.format(version_names)
+        )
+    return True
+
+def get_user_and_version(job__owned_by, job__id, production_ws, logger=None, arcpy_messages=None):
+    # Assemble the version name from its component parts. This is much easier than passing in
+    #  the version name, as version names contain " and \ characters :-|
+    if '\\' in job__owned_by:
+        user = job__owned_by.split('\\')[1]
+    else:
+        user = job__owned_by
+    production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
+        user=user,
+        job_id=job__id
+    )
+
+    version_names = arcpy.ListVersions(production_ws)
+    try:
+        check_for_version(production_ws_version, production_ws, version_names)
+    except VersionDoesNotExistError:
+        user = user.upper()
+        production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
+            user=user,
+            job_id=job__id
+        )
+        try:
+            check_for_version(production_ws_version, production_ws, version_names)
+        except VersionDoesNotExistError:
+            user = user.lower()
+            production_ws_version = '"SVC\\{user}".HDS_GENERAL_EDITING_JOB_{job_id}'.format(
+                user=user,
+                job_id=job__id
+            )
+
+    check_for_version(production_ws_version, production_ws, version_names)
+
+    log_it(('Reassembled [JOB:OWNED_BY] and [JOB:ID] WMX tokens to create production_ws_version: ' +
+            '{}'.format(production_ws_version)),
+            level='debug', logger=logger, arcpy_messages=arcpy_messages)
+
+    return user, production_ws_version
+        
 def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_layer, reviewer_ws,
                                                     session_name, origin_table,
                                                     level='info', logger=None, arcpy_messages=None):
@@ -698,7 +743,7 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         route_ids = rule_rids[1]
         if not route_ids:
             continue
-        where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "')"
+        where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
 
         log_it('{}: roadway_level_attribute_result where_clause={}'.format(rule_rids[0], where_clause),
             level='info', logger=logger, arcpy_messages=arcpy_messages)
@@ -796,16 +841,45 @@ def validate_by_roadway_type(roadway_type, attributes):
 
     return violations
 
-def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_messages=None):
-    reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
-        user=user,
-        job_id=job_id
-    )
+class NoSessionIDError(Exception):
+    pass
+
+def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
     reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
     session_table = os.path.join(reviewer_ws, 'GDB_REVSESSIONTABLE')
+
     with arcpy.da.SearchCursor(session_table, reviewer_fields, where_clause=reviewer_where_clause) as curs:
         for row in curs:
             session_id = row[0]
+    try:
+        session_id
+    except UnboundLocalError:
+        raise NoSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+    return session_id
+
+def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_messages=None):
+    try:
+        reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
+            user=user,
+            job_id=job_id
+        )
+        session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
+    except NoSessionIDError:
+        try:
+            reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
+                user=user.lower(),
+                job_id=job_id
+            )
+
+            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
+        except NoSessionIDError:
+            reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
+                user=user.upper(),
+                job_id=job_id
+            )
+
+            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
+
     if session_id:
         reviewer_session = 'Session {session_id} : {job_id}'.format(
             session_id=session_id,
@@ -814,7 +888,7 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
         log_it('Reviewer session name determined to be \'{}\''.format(reviewer_session),
                 level='debug', logger=logger, arcpy_messages=arcpy_messages)
     else:
-        raise ValueError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+        raise NoSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
     return reviewer_session
 
 def to_in_memory_fc(layer, new_field='ORIG_OBJECTID', check_fields=['ROUTE_ID', 'OBJECTID']):
@@ -853,7 +927,7 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
 
     where_clause = ''
     for dot_id, county_order in zip(dot_ids, county_orders):
-        where_clause += '(DOT_ID = \'{}\' AND COUNTY_ORDER = \'{}\') OR '.format(dot_id, county_order)
+        where_clause += '(DOT_ID = \'{}\' AND COUNTY_ORDER = \'{}\' AND TO_DATE IS NULL) OR '.format(dot_id, county_order)
     # Remove the extra ' OR ' from the where_clause from the last iteration
     where_clause = where_clause[:-4]
     log_it('{}: SQL Results where_clause: {}'.format(log_name, where_clause),
@@ -886,7 +960,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     # Account for the rare case where a DOT_ID does not exist, which will be caught in another validation
     dot_ids = ['' for dot_id in dot_ids if dot_id is None]
 
-    where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "')"
+    where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "') AND TO_DATE IS NULL"
     arcpy.SelectLayerByAttribute_management(
         versioned_layer,
         'NEW_SELECTION',
@@ -909,7 +983,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
         if row[0] == 1
     ]
 
-    output_where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "')"
+    output_where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
 
     log_it('{}: SQL Results where_clause: {}'.format(log_name, output_where_clause),
         level='info', logger=logger, arcpy_messages=arcpy_messages)
