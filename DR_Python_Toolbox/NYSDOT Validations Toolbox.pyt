@@ -600,96 +600,100 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
                                        job__started_date, job__owned_by, full_db_flag,
                                        logger=None, messages=None):
-    if not logger:
-        logger = initialize_logger(log_path=None, log_level=logging.INFO)
+    try:
+        if not logger:
+            logger = initialize_logger(log_path=None, log_level=logging.INFO)
 
-    log_it(
-        'Calling run_roadway_level_attribute_checks(): Selecting newly created ' +
-        'or edited routes by this user in this version and validating their attributes',
-        level='info', logger=logger, arcpy_messages=messages)
+        log_it(
+            'Calling run_roadway_level_attribute_checks(): Selecting newly created ' +
+            'or edited routes by this user in this version and validating their attributes',
+            level='info', logger=logger, arcpy_messages=messages)
 
-    arcpy.CheckOutExtension('datareviewer')
+        arcpy.CheckOutExtension('datareviewer')
 
-    # Set the database connection as the workspace. All table and FC references come from here
-    arcpy.env.workspace = production_ws
+        # Set the database connection as the workspace. All table and FC references come from here
+        arcpy.env.workspace = production_ws
 
-    user, production_ws_version = get_user_and_version(
-        job__owned_by,
-        job__id,
-        production_ws,
-        logger=logger,
-        arcpy_messages=messages
-    )
-
-    milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
-    if len(milepoint_fcs) == 1:
-        milepoint_fc = milepoint_fcs[0]
-    else:
-        raise ValueError(
-            'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
-            'Selected FCs: {}'.format(milepoint_fcs)
+        user, production_ws_version = get_user_and_version(
+            job__owned_by,
+            job__id,
+            production_ws,
+            logger=logger,
+            arcpy_messages=messages
         )
 
-    if full_db_flag:
-        where_clause = None
-    else:
-        where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
-            date=job__started_date,
-            user=user.upper()
+        milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
+        if len(milepoint_fcs) == 1:
+            milepoint_fc = milepoint_fcs[0]
+        else:
+            raise ValueError(
+                'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
+                'Selected FCs: {}'.format(milepoint_fcs)
+            )
+
+        if full_db_flag:
+            where_clause = None
+        else:
+            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
+                date=job__started_date,
+                user=user.upper()
+            )
+        log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
+            level='debug', logger=logger, arcpy_messages=messages)
+
+        # Explicitly change version to the input version, as the SDE file could point to anything
+        sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
+            milepoint_fc,
+            'milepoint_layer_{}'.format(int(time.time()))
         )
-    log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
-        level='debug', logger=logger, arcpy_messages=messages)
+        version_milepoint_layer = arcpy.ChangeVersion_management(
+            sde_milepoint_layer,
+            'TRANSACTIONAL',
+            version_name=production_ws_version
+        )
+        version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
+            version_milepoint_layer,
+            'NEW_SELECTION',
+            where_clause=where_clause
+        )
+        log_it('{count} features selected'.format(
+            count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
+            level='debug', logger=logger, arcpy_messages=messages)
 
-    # Explicitly change version to the input version, as the SDE file could point to anything
-    sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
-        milepoint_fc,
-        'milepoint_layer_{}'.format(int(time.time()))
-    )
-    version_milepoint_layer = arcpy.ChangeVersion_management(
-        sde_milepoint_layer,
-        'TRANSACTIONAL',
-        version_name=production_ws_version
-    )
-    version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
-        version_milepoint_layer,
-        'NEW_SELECTION',
-        where_clause=where_clause
-    )
-    log_it('{count} features selected'.format(
-        count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
-        level='debug', logger=logger, arcpy_messages=messages)
+        attribute_fields = [
+            'ROADWAY_TYPE', 'ROUTE_ID', 'DOT_ID', 'COUNTY_ORDER', 'SIGNING', 'ROUTE_NUMBER',
+            'ROUTE_SUFFIX', 'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE',
+        ]
+        violations = defaultdict(list)
+        with arcpy.da.SearchCursor(version_select_milepoint_layer, attribute_fields) as curs:
+            for row in curs:
+                roadway_type = row[0]
+                attributes = row[1:]
+                results = validate_by_roadway_type(roadway_type, attributes)
+                for rule_rids in results.items():
+                    violations[rule_rids[0]].append(*rule_rids[1])
 
-    attribute_fields = [
-        'ROADWAY_TYPE', 'ROUTE_ID', 'DOT_ID', 'COUNTY_ORDER', 'SIGNING', 'ROUTE_NUMBER',
-        'ROUTE_SUFFIX', 'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE',
-    ]
-    violations = defaultdict(list)
-    with arcpy.da.SearchCursor(version_select_milepoint_layer, attribute_fields) as curs:
-        for row in curs:
-            roadway_type = row[0]
-            attributes = row[1:]
-            results = validate_by_roadway_type(roadway_type, attributes)
-            for rule_rids in results.items():
-                violations[rule_rids[0]].append(*rule_rids[1])
+        session_name = get_reviewer_session_name(
+            reviewer_ws,
+            user,
+            job__id,
+            logger=logger,
+            arcpy_messages=messages
+        )
 
-    session_name = get_reviewer_session_name(
-        reviewer_ws,
-        user,
-        job__id,
-        logger=logger,
-        arcpy_messages=messages
-    )
-
-    roadway_level_attribute_result_to_reviewer_table(
-        violations,
-        version_milepoint_layer,
-        reviewer_ws,
-        session_name,
-        milepoint_fc,
-        level='info',
-        logger=logger,
-        arcpy_messages=messages
-    )
+        roadway_level_attribute_result_to_reviewer_table(
+            violations,
+            version_milepoint_layer,
+            reviewer_ws,
+            session_name,
+            milepoint_fc,
+            level='info',
+            logger=logger,
+            arcpy_messages=messages
+        )
+    except Exception as exc:
+        log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
+        raise exc
 
     return True
 
