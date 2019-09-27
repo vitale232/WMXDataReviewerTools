@@ -632,7 +632,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             )
 
         if full_db_flag:
-            where_clause = None
+            where_clause = 'TO_DATE IS NULL'
         else:
             where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
                 date=job__started_date,
@@ -753,7 +753,30 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         route_ids = rule_rids[1]
         if not route_ids:
             continue
-        where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
+        
+        # This check currently returns 20000+ ROUTE_IDs, which results in an error using the 
+        #  ROUTE_ID IN () style query. Force a different where_clause for this case to support
+        #  the full_db_flag
+        log_it('check-description: {}'.format(check_description),
+            level='warn', logger=logger, arcpy_messages=arcpy_messages)
+
+        if check_description == 'SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
+            where_clause = 'SIGNING IS NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
+
+        elif check_description == 'ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
+            where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2)'
+        
+        elif check_description == 'ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
+            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2)'
+        
+        elif check_description == 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
+            where_clause = 'ROUTE_QUALIFIER <> 10 AND ROADWAY_TYPE IN (1, 2)'
+        
+        elif check_description == 'PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
+            where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2)'
+
+        else:
+            where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
 
         log_it('{}: roadway_level_attribute_result where_clause={}'.format(rule_rids[0], where_clause),
             level='info', logger=logger, arcpy_messages=arcpy_messages)
