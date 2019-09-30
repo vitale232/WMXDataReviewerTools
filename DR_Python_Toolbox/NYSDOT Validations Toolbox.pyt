@@ -326,7 +326,7 @@ class VersionDoesNotExistError(Exception):
     pass
 
 
-class NoSessionIDError(Exception):
+class NoReviewerSessionIDError(Exception):
     pass
 
 
@@ -847,7 +847,7 @@ def validate_by_roadway_type(roadway_type, attributes):
         if roadway_feature:
             violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
 
-    if roadway_type == 3:     # Route
+    elif roadway_type == 3:     # Route
         if not route_number:
             violations['ROUTE_NUMBER must not be null when ROADWAY_TYPE=Route'].append(rid)
         if roadway_feature:
@@ -858,7 +858,7 @@ def validate_by_roadway_type(roadway_type, attributes):
                 'ROADWAY_TYPE=Route and SIGNING is null'
             )].append(rid)
 
-    if roadway_type == 5:    # Non-Mainline
+    elif roadway_type == 5:    # Non-Mainline
         if signing:
             violations['SIGNING must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
         if route_number:
@@ -871,6 +871,12 @@ def validate_by_roadway_type(roadway_type, attributes):
             violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE=Non-Mainline'].append(rid)
         if not roadway_feature:
             violations['ROADWAY_FEATURE must not be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+
+    else:
+        raise AttributeError(
+            'ROADWAY_TYPE is outside of the valid range. Must be one of (1, 2, 3, 4 ,5). ' +
+            'Currently ROADWAY_TYPE={}'.format(roadway_type)
+        )
 
     return violations
 
@@ -885,7 +891,7 @@ def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
     try:
         session_id
     except UnboundLocalError:
-        raise NoSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+        raise NoReviewerSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
     return session_id
 
 def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_messages=None):
@@ -895,7 +901,7 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
             job_id=job_id
         )
         session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
-    except NoSessionIDError:
+    except NoReviewerSessionIDError:
         try:
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
                 user=user.lower(),
@@ -903,7 +909,7 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
             )
 
             session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
-        except NoSessionIDError:
+        except NoReviewerSessionIDError:
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
                 user=user.upper(),
                 job_id=job_id
@@ -911,15 +917,15 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
 
             session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
 
-    if session_id:
+    try:
         reviewer_session = 'Session {session_id} : {job_id}'.format(
             session_id=session_id,
             job_id=job_id
         )
         log_it('Reviewer session name determined to be \'{}\''.format(reviewer_session),
                 level='debug', logger=logger, arcpy_messages=arcpy_messages)
-    else:
-        raise NoSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+    except:
+        raise NoReviewerSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
     return reviewer_session
 
 def to_in_memory_fc(layer, new_field='ORIG_OBJECTID', check_fields=['ROUTE_ID', 'OBJECTID']):
