@@ -206,7 +206,15 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             direction='Input'
         )
 
-        return params + [ batch_job_file_param ]
+        full_db_flag_param = arcpy.Parameter(
+            displayName='Run Validations on Full Geodatabase',
+            name='full_db_flag',
+            datatype='GPBoolean',
+            parameterType='Optional',
+            direction='Input'
+        )
+
+        return params + [ batch_job_file_param, full_db_flag_param ]
 
     def execute(self, parameters, messages):
         job__started_date = parameters[0].valueAsText
@@ -216,6 +224,7 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
         reviewer_ws = parameters[4].valueAsText
         log_path = parameters[5].valueAsText
         batch_job_file = parameters[6].valueAsText
+        full_db_flag = parameters[7].valueAsText
 
         if log_path == '':
             log_path = None
@@ -229,6 +238,7 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
         )
@@ -258,7 +268,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         )
 
         full_db_flag_param = arcpy.Parameter(
-            displayName='Run Validations on Full Geodatabase (Applies to Rdwy Attrs Validations)',
+            displayName='Run Validations on Full Geodatabase',
             name='full_db_flag',
             datatype='GPBoolean',
             parameterType='Optional',
@@ -294,6 +304,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
         )
@@ -333,14 +344,11 @@ class NoReviewerSessionIDError(Exception):
 def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 production_ws, job__id,
                                 job__started_date, job__owned_by,
+                                full_db_flag=False,
                                 logger=None, messages=None):
     try:
         if not logger:
             logger = initialize_logger(log_path=None, log_level=logging.INFO)
-
-        log_it(('Calling run_batch_on_buffered_edits(): Selecting edits by this user ' +
-                'in HDS_GENERAL_EDITING_JOB_{} and buffering by 10 meters'.format(job__id)),
-                level='info', logger=logger, arcpy_messages=messages)
 
         arcpy.CheckOutExtension('datareviewer')
 
@@ -355,6 +363,15 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             arcpy_messages=None
         )
 
+        if not full_db_flag:
+            log_it(('Calling run_batch_on_buffered_edits(): Selecting edits by this {} '.format(user) +
+                    'in {} and buffering by 10 meters'.format(production_ws_version)),
+                    level='info', logger=logger, arcpy_messages=messages)
+        else:
+            log_it(('Calling run_batch_on_buffered_edits(): Running Reviewer Batch Job on ' +
+                'all features in {}'.format(production_ws_version)),
+                level='info', logger=logger, arcpy_messages=messages)
+
         # Select the milepoint LRS feature class from the workspace
         milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
         if len(milepoint_fcs) == 1:
@@ -365,11 +382,15 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                 'Selected FCs: {}'.format(milepoint_fcs)
             )
 
-        # Filter out edits made by this user on this version since its creation
-        where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
-            date=job__started_date,
-            user=user.upper()
-        )
+        if not full_db_flag:
+            # Filter out edits made by this user on this version since its creation
+            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
+                date=job__started_date,
+                user=user.upper()
+            )
+        else:
+            where_clause = None
+
         log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
 
@@ -383,36 +404,40 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             'TRANSACTIONAL',
             version_name=production_ws_version
         )
-        version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
-            version_milepoint_layer,
-            'NEW_SELECTION',
-            where_clause=where_clause
-        )
+        if where_clause:
+            version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
+                version_milepoint_layer,
+                'NEW_SELECTION',
+                where_clause=where_clause
+            )
 
-        feature_count = int(arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0))
-        if feature_count == 0:
-            log_it(('0 features were identified as edited since {}. '.format(job__started_date) +
-                'Exiting without running validations!'),
-                level='warn', logger=logger, arcpy_messages=messages)
-            return False
+        if not full_db_flag:
+            feature_count = int(arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0))
+            if feature_count == 0:
+                log_it(('0 features were identified as edited since {}. '.format(job__started_date) +
+                    'Exiting without running validations!'),
+                    level='warn', logger=logger, arcpy_messages=messages)
+                return False
 
-        log_it('{count} features selected'.format(count=feature_count),
-            level='debug', logger=logger, arcpy_messages=messages)
+            log_it('{count} features selected'.format(count=feature_count),
+                level='debug', logger=logger, arcpy_messages=messages)
 
-        # Create buffer polygons of the edited features. These will be used as the DR analysis_area
-        log_it('Buffering edited routes by 10 meters',
-            level='info', logger=logger, arcpy_messages=messages)
-        buffer_polygons = 'in_memory\\mpbuff_{}'.format(int(time.time()))
+            # Create buffer polygons of the edited features. These will be used as the DR analysis_area
+            log_it('Buffering edited routes by 10 meters',
+                level='info', logger=logger, arcpy_messages=messages)
+            area_of_interest = 'in_memory\\mpbuff_{}'.format(int(time.time()))
 
-        # Set the output coordinate reference for the Buffer_analysis call
-        arcpy.env.outputCoordinateSystem = arcpy.Describe(milepoint_fc).spatialReference
+            # Set the output coordinate reference for the Buffer_analysis call
+            arcpy.env.outputCoordinateSystem = arcpy.Describe(milepoint_fc).spatialReference
 
-        arcpy.Buffer_analysis(
-            version_select_milepoint_layer,
-            buffer_polygons,
-            '10 Meters'
-        )
-        log_it('', level='gp', logger=logger, arcpy_messages=messages)
+            arcpy.Buffer_analysis(
+                version_select_milepoint_layer,
+                area_of_interest,
+                '10 Meters'
+            )
+            log_it('', level='gp', logger=logger, arcpy_messages=messages)
+        else:
+            area_of_interest = arcpy.Describe(version_milepoint_layer).extent
 
         # Data Reviewer WMX tokens are only supported in the default DR Step Types. We must back out
         #  the session name from the DR tables
@@ -424,12 +449,16 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             arcpy_messages=messages
         )
 
+        log_it(('Calling ExecuteReviewerBatchJob_Reviewer ' +
+            'geoprocessing tool at {}'.format(datetime.datetime.now())),
+            level='debug', logger=logger, arcpy_messages=messages)
+
         reviewer_results = arcpy.ExecuteReviewerBatchJob_Reviewer(
             reviewer_ws,
             reviewer_session,
             batch_job_file,
             production_workspace=production_ws,
-            analysis_area=buffer_polygons,
+            analysis_area=area_of_interest,
             changed_features='ALL_FEATURES',
             production_workspaceversion=production_ws_version
         )
@@ -753,13 +782,10 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         route_ids = rule_rids[1]
         if not route_ids:
             continue
-        
-        # This check currently returns 20000+ ROUTE_IDs, which results in an error using the 
-        #  ROUTE_ID IN () style query. Force a different where_clause for this case to support
-        #  the full_db_flag
-        log_it('check-description: {}'.format(check_description),
-            level='warn', logger=logger, arcpy_messages=arcpy_messages)
 
+        # Some checks currently returns 20000+ ROUTE_IDs, which results in an error using the 
+        #  ROUTE_ID IN () style query. Force a different where_clause for these cases to support
+        #  the full_db_flag
         if check_description == 'SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
             where_clause = 'SIGNING IS NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
 
