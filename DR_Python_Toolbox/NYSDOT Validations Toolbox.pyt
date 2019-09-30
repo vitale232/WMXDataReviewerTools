@@ -716,6 +716,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             reviewer_ws,
             session_name,
             milepoint_fc,
+            base_where_clause=where_clause,
             level='info',
             logger=logger,
             arcpy_messages=messages
@@ -775,7 +776,7 @@ def get_user_and_version(job__owned_by, job__id, production_ws, logger=None, arc
     return user, production_ws_version
         
 def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_layer, reviewer_ws,
-                                                    session_name, origin_table,
+                                                    session_name, origin_table, base_where_clause=None,
                                                     level='info', logger=None, arcpy_messages=None):
     for rule_rids in result_dict.items():
         check_description = rule_rids[0]
@@ -807,10 +808,18 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         log_it('{}: roadway_level_attribute_result where_clause={}'.format(rule_rids[0], where_clause),
             level='info', logger=logger, arcpy_messages=arcpy_messages)
 
+        if base_where_clause:
+            violations_where_clause = '({base_where}) AND ({validation_where})'.format(
+                base_where=base_where_clause,
+                validation_where=where_clause
+            )
+        else:
+            violations_where_clause = where_clause
+
         arcpy.SelectLayerByAttribute_management(
             versioned_layer,
             'NEW_SELECTION',
-            where_clause=where_clause
+            where_clause=violations_where_clause
         )
 
         in_memory_fc = to_in_memory_fc(versioned_layer)
