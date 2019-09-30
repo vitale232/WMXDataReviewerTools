@@ -805,9 +805,6 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         else:
             where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
 
-        log_it('{}: roadway_level_attribute_result where_clause={}'.format(rule_rids[0], where_clause),
-            level='info', logger=logger, arcpy_messages=arcpy_messages)
-
         if base_where_clause:
             violations_where_clause = '({base_where}) AND ({validation_where})'.format(
                 base_where=base_where_clause,
@@ -815,6 +812,10 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             )
         else:
             violations_where_clause = where_clause
+
+
+        log_it('{}: roadway_level_attribute_result where_clause={}'.format(rule_rids[0], violations_where_clause),
+            level='info', logger=logger, arcpy_messages=arcpy_messages)
 
         arcpy.SelectLayerByAttribute_management(
             versioned_layer,
