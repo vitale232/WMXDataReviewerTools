@@ -1062,8 +1062,8 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
         level='info', logger=logger, arcpy_messages=arcpy_messages)
 
     if len(route_ids) == 0:
-        log_it('0 violations were found. Exiting with success code.',
-            level='warn', logger=logger, arcpy_messages=arcpy_messages)
+        log_it('    0 violations were found. Exiting with success code.',
+            level='info', logger=logger, arcpy_messages=arcpy_messages)
         return True
 
     arcpy.SelectLayerByAttribute_management(
@@ -1129,6 +1129,8 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
     elif level.lower() == 'gp':
         if arcpy_messages:
             arcpy_messages.addGPMessages()
+            message = arcpy.GetMessages()
+            logger.info(message)
     else:
         raise ValueError('Parameter \'level\' must be one of (info, debug, error, gp)')
 
