@@ -22,9 +22,10 @@ class Toolbox(object):
 
 class NYSDOTValidationsMixin(object):
     """
-    Since the Data Reviewer jobs all require the same inputs, we'll use a Mixin
-    to define the getParameterInfo and the isLicensed methods. Now it only needs to be
-    maintained in one location
+    These validation tools require many of the same inputs and licenses. I've implemented
+    a mixin class to make them easier to maintain. Pass the Mixin class into the tools' class 
+    definitions as the first positional argument, and they will inherit these definitions. By
+    defining these parameters in one place, maintenance is easier.
     """
 
     def getParameterInfo(self):
@@ -85,6 +86,9 @@ class NYSDOTValidationsMixin(object):
         return params
 
     def isLicensed(self):
+        """
+        All of these tools require a Data Reviewer license.
+        """
         try:
             if arcpy.CheckExtension('datareviewer') != 'Available':
                 raise Exception
@@ -94,6 +98,14 @@ class NYSDOTValidationsMixin(object):
 
 
 class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
+    """
+    This tool executes two separate SQL queries against the ELRS database. The 
+    queries are intended to identify invalid attributes at the DOT_ID level. 
+    One query for example, one DOT_ID should have a consistent value for SIGNING, ROUTE_NUMBER,
+    ROUTE_SUFFIX, ROADWAY_FEATURE, PARKWAY_FLAG. The second query checks for unique DIRECTION
+    codes at the DOT_ID/COUNTY_ORDER level. That is to say, two routes with the same 
+    DOT_ID and COUNTY_ORDER should not have the same DIRECTION code.
+    """
     def __init__(self):
         self.label = 'Execute SQL Validations Against Network'
         self.description = (
@@ -130,6 +142,17 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
 
 
 class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
+    """
+    This tool validates the roadway level attributes of the Milepoint network.
+    Roadway level attributes refers to the fields on the LRSN_Milepoint table.
+    The validations are implemented in Python for ease of maintenance. These validations
+    will not change for the lifetime of the current ELRS implementation, thus it seemed 
+    easier to implement them in Python rather than using a Reviewer Batch Job.
+
+    The validations take place at the ROADWAY_TYPE level. Each ROADWAY_TYPE has specific
+    expectations for fields like SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, etc. If the user
+    has incorrectly entered the ROADWAY_TYPE, these validations are nonsense.
+    """
     def __init__(self):
         self.label = 'Execute Roadway Level Attribute Validations'
         self.description = (
@@ -140,6 +163,14 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         self.canRunInBackground = False
 
     def getParameterInfo(self):
+        """
+        This tool has one additional parameter than the NYSDTOValidationsMixin, which
+        is a flag to run the tool on the full database.
+
+        The call to the `super` function returns a list of all of the parameters defined in 
+        the mixin. The additional parameter is defined here, and the two lists are combined 
+        and returned.
+        """
         params = super(ExecuteRoadwayLevelAttributeValidations, self).getParameterInfo()
 
         full_db_flag_param = arcpy.Parameter(
@@ -177,7 +208,7 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
-            full_db_flag,
+            full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
         )
@@ -186,6 +217,17 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
 
 
 class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
+    """
+    This tool manages the execution of a Data Reviewer Batch Job. 
+    Using ArcGIS Desktop, you can create a .rbj file that specifies specific 
+    pre-built Esri routines for geospatial and attribute validation (called checks)
+    and their input  parameters.  Any valid RBJ can be passed into this tool as a parameter.
+    If the full_db_flag is set, the RBJ will execute against the entire geodatabase (this
+    process is quite slow, taking about 7.5 hours). If the full_db_flag is False,
+    the tool will use the input parameters to determine which features have been edited
+    since the creating of the WMX job, buffer those features, and run the RBJ on
+    all features that intersect the buffer polygons.
+    """
     def __init__(self):
         self.label = 'Execute Reviewer Batch Job on R&H Edits'
         self.description = (
@@ -196,6 +238,11 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
         self.canRunInBackground = False
 
     def getParameterInfo(self):
+        """
+        This tool requires two additional parameters than are present in the mixin class.
+        Capture the mixin paramters using `super`, define the additional parameters, 
+        and combine/return the full list of parameters.
+        """
         params = super(ExecuteReviewerBatchJobOnEdits, self).getParameterInfo()
 
         batch_job_file_param = arcpy.Parameter(
@@ -247,6 +294,15 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
 
 
 class ExecuteAllValidations(NYSDOTValidationsMixin, object):
+    """
+    This is the tool that will be used in the Workflow Manager workflows. It executes all of
+    NYSDOT's validation tools against the ELRS geodatabase.
+
+    This tool is essentially a wrapper function. It requires all of the parameters that
+    could possible be defined in ExecuteReviewerBatchJobOnEdits, ExecuteNetworkSQLValidations,
+    or ExecuteRoadwayLevelAttributeValidations. The parameters are then passed into the functions
+    that make up the base functionality of those tools and executed accordingly.
+    """
     def __init__(self):
         self.label = 'Execute All Validations'
         self.description = (
@@ -257,6 +313,10 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         self.canRunInBackground = False
 
     def getParameterInfo(self):
+        """
+        Get the mixin classes parameters using `super`, then add the other required parameters
+        to the list and return it.
+        """
         params = super(ExecuteAllValidations, self).getParameterInfo()
 
         batch_job_file_param = arcpy.Parameter(
@@ -334,10 +394,18 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
 
 
 class VersionDoesNotExistError(Exception):
+    """
+    This exception is raised when the specified database version does not
+    exist in the ELRS SDE database.
+    """
     pass
 
 
 class NoReviewerSessionIDError(Exception):
+    """
+    This exception is raised when the Reviewer Session ID cannot be backed out of the
+    Data Reviewer workspace tables.
+    """
     pass
 
 
@@ -346,6 +414,41 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 job__started_date, job__owned_by,
                                 full_db_flag=False,
                                 logger=None, messages=None):
+    """
+    This function executes the Data Reviewer Batch Job. The workflow of the function is as follows:
+    1. Use the WMX job__id and job__owned by "tokens" to capture the version name and username
+    2. Use the full_db_flag or job__owned_by and job__started_date WMX token to figure out which features to validate.
+       If the full_db_flag is set, all features are validated. If the full_db_flag is False, the job__owned_by and 
+       job__started_date parameters are used to query the LRSN_Milepoint.EDITED_BY and LRSN_Milepoint.EDITED_DATE
+       fields for recent updates. EDITED_BY and EDITED_DATE are automatically updated with the username and time
+       of the transaction for edits of existing data and creation of new data
+    3. Run the Data Reviewer Batch Job using the Geoprocessing tool with the buffer polygons or LRSN_Milepoint
+       extent as the area of interst (which is used is determined by the full_db_flag)
+
+    Arguments
+    ---------
+    :param reviewer_ws: Filepath to a Data Reviewer enabled geodatabase. Currently use file geodatabases, will
+        eventually use an SDE filepath
+    :param batch_job_file: Filepath to the Reviewer Batch Job file (.rbj) that was created using ArcGIS Desktop
+    :param production_ws: Filepath to the SDE file pointing to the correct database. The version of the SDE filepath
+        does not matter as long as it exists. The function will change to the user's version.
+    :param job__id: The integer value from the WMX [JOB:ID] token. Can be set manually if run via ArcMap
+    :param job__started_date: The date value from the WMX [JOB:STARTED_DATE] token. Can be set manually
+        if run via ArcMap.
+    :param job__owned_by: The username from the WMX [JOB:OWNED_BY] token. Can be set manually if run
+        via ArcMap.
+    
+    Keyword Arguments
+    -----------------
+    :param full_db_flag: Defaults to False. If True, all features will be validated. If False, only
+        features edited by the user in their version will be validated.
+    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
+        the log file.
+    :param messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
+        in the `execute` method of Python Toolboxes.
+
+    :returns bool: When successful, the function returns True
+    """
     try:
         if not logger:
             logger = initialize_logger(log_path=None, log_level=logging.INFO)
@@ -412,6 +515,10 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             )
 
         if not full_db_flag:
+            # Since the full_db_flag is False, let's find the features that were edited
+            #  by this user in this version since it was created. We'll then buffer those
+            #  features by a generous 10 meters, and validate all features that lie
+            #  within the polygons using a RBJ
             feature_count = int(arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0))
             if feature_count == 0:
                 log_it(('0 features were identified as edited since {}. '.format(job__started_date) +
@@ -422,7 +529,6 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             log_it('{count} features selected'.format(count=feature_count),
                 level='debug', logger=logger, arcpy_messages=messages)
 
-            # Create buffer polygons of the edited features. These will be used as the DR analysis_area
             log_it('Buffering edited routes by 10 meters',
                 level='info', logger=logger, arcpy_messages=messages)
             area_of_interest = 'in_memory\\mpbuff_{}'.format(int(time.time()))
@@ -490,6 +596,50 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
 def run_sql_validations(reviewer_ws, production_ws, job__id,
                         job__started_date, job__owned_by,
                         logger=None, messages=None):
+    """
+    This tool executes two SQL queries against the SDE versioned view of the LRSN_Milepoint table.
+    By using the versioned view, we ensure that all new features are validated, and we get the added
+    bonus of validating the entire table.
+
+    The two queries introspect on signed routes (and 900 administrative routes) and divided roadways.
+    One query looks at numerous attributes, including SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE,
+    ROUTE_QUALIFIER, ROADWAY_FEATURE, and PARKWAY_FLAG, and ensures that there is one unique combination
+    of those features across a DOT_ID and COUNTY_ORDER combination. For example, I-90 in Albany County
+    should have only one attribute roadway level attribute that distinguishes between the primary and
+    non-primary R&H routes, which is the DIRECTION attribute. If I-90 primary has a ROUTE_SUFFIX=None
+    but I-90 reverse has a ROUTE_SUFFIX=NULL, this validation will be violated. The ROUTE_IDs of the offending
+    DOT_ID/COUNTY_ORDER combination are committed to the Reviewer Table. The second query ensures that 
+    the DIRECTION code is not repeated across a DOT_ID/COUNTY_ORDER combination. For example, if both I-90
+    primary and reverse were set to have a DIRECTION code of 0, this validation will commit them to the
+    reviewer table.
+
+    This function does the following:
+    1. Establishes a connection to the database using the `arcpy.ArcSDESQLExecute` class, which allows the
+       execution of arbitrary SQL code (this gets around the typical ArcGIS where_clause pattern)
+    2. Parses the query responses for violations. If there are violations, the violating routes are
+       written to the Reviewer Table
+
+    Arguments
+    ---------
+    :param reviewer_ws: Filepath to a Data Reviewer enabled geodatabase. Currently use file geodatabases, will
+        eventually use an SDE filepath
+    :param production_ws: Filepath to the SDE file pointing to the correct database. The version of the SDE filepath
+        does not matter as long as it exists. The function will change to the user's version.
+    :param job__id: The integer value from the WMX [JOB:ID] token. Can be set manually if run via ArcMap
+    :param job__started_date: The date value from the WMX [JOB:STARTED_DATE] token. Can be set manually
+        if run via ArcMap.
+    :param job__owned_by: The username from the WMX [JOB:OWNED_BY] token. Can be set manually if run
+        via ArcMap.
+    
+    Keyword Arguments
+    -----------------
+    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
+        the log file.
+    :param messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
+        in the `execute` method of Python Toolboxes.
+
+    :returns bool: When successful, the function returns True
+    """
     try:
         # These are the sql queries that need to be run against the full Milepoint table.
         arcpy.CheckOutExtension('datareviewer')
@@ -540,6 +690,9 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
         unique_co_dir_result = connection.execute(unique_co_dir_sql)
 
+        # If the query succeeds but the response is empty, arcpy returns a python
+        #  boolean type with a True value. Convert booleans to an empty list to 
+        #  simplify the results handling logic.
         if isinstance(unique_co_dir_result, bool):
             unique_co_dir_result = []
         if isinstance(unique_rdwy_attrs_result, bool):
@@ -627,8 +780,50 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
     return True
 
 def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
-                                       job__started_date, job__owned_by, full_db_flag,
+                                       job__started_date, job__owned_by, full_db_flag=False,
                                        logger=None, messages=None):
+    """
+    This function manages the execution of the "Roadway level attribute" validations on the 
+    LRSN_Milepoint table. Roadway level attributes refers to the business data stored in 
+    the LRSN_Milepoint table, that applies to the entirety of the route. Some examples
+    include SIGNING, COUNTY, and ROUTE_NUMBER.
+
+    All of the validations are based on the ROADWAY_TYPE (which is also a roadway level attribute).
+    This means that ROADWAY_TYPE itself cannot be validated, so it is up to the
+    user to ensure at least this field is correct.
+
+    This function executes by:
+    1. Selecting the user edited routes from the current version, or selecting all active routes
+       from the table (depending on the full_db_flag value)
+    2. Iterates through the selected features attributes, and calls the `validate_by_roadway_type`
+       function on each individual feature
+    3. Writes the output to the Reviewer table.
+
+    Arguments
+    ---------
+    :param reviewer_ws: Filepath to a Data Reviewer enabled geodatabase. Currently use file geodatabases, will
+        eventually use an SDE filepath
+    :param production_ws: Filepath to the SDE file pointing to the correct database. The version of the SDE filepath
+        does not matter as long as it exists. The function will change to the user's version.
+    :param job__id: The integer value from the WMX [JOB:ID] token. Can be set manually if run via ArcMap
+    :param job__started_date: The date value from the WMX [JOB:STARTED_DATE] token. Can be set manually
+        if run via ArcMap.
+    :param job__owned_by: The username from the WMX [JOB:OWNED_BY] token. Can be set manually if run
+        via ArcMap.
+    
+    Keyword Arguments
+    -----------------
+    :param full_db_flag: Defaults to False. If True, all features will be validated. If False, only
+        features edited by the user in their version will be validated.
+    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
+        the log file.
+    :param messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
+        in the `execute` method of Python Toolboxes.
+    
+    :returns
+
+    :returns bool: When successful, the function returns True
+    """
     try:
         if not logger:
             logger = initialize_logger(log_path=None, log_level=logging.INFO)
@@ -660,6 +855,9 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
                 'Selected FCs: {}'.format(milepoint_fcs)
             )
 
+        # If the full_db_flag is True, run the validations on all active routes (routes with no TO_DATE).
+        #  Otherwise, follow the typical pattern of selecting the data edited by this user
+        #  in this version since it was created.
         if full_db_flag:
             where_clause = 'TO_DATE IS NULL'
         else:
@@ -689,6 +887,9 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
             level='debug', logger=logger, arcpy_messages=messages)
 
+        # If these fields in precisely this order are not passed to the SearchCursor,
+        #  the validate_roadway_type function will fail. Any updates to either function
+        #  should be careful with the field orders.
         attribute_fields = [
             'ROADWAY_TYPE', 'ROUTE_ID', 'DOT_ID', 'COUNTY_ORDER', 'SIGNING', 'ROUTE_NUMBER',
             'ROUTE_SUFFIX', 'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE',
@@ -728,6 +929,20 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
     return True
 
 def check_for_version(production_ws_version, production_ws, version_names):
+    """
+    Check if the production_ws_version exists in the production_ws. If not, raise
+    a custom exception
+
+    Arguments
+    ---------
+    :param production_ws_version: The version name that's expected to exist in the production_ws
+    :param production_ws: Filepath to the SDE file pointing to the correct database. The version of the SDE filepath
+        does not matter as long as it exists. The function will change to the user's version.
+    :param version_names: A list or tuple of the available versions in the database
+
+    :returns bool: When successful, the function returns True
+    :raises VersionDoesNotExistError: Raises exception if version does not exist in the production_ws
+    """
     if not production_ws_version in version_names:
         raise VersionDoesNotExistError(
             'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
@@ -738,6 +953,36 @@ def check_for_version(production_ws_version, production_ws, version_names):
     return True
 
 def get_user_and_version(job__owned_by, job__id, production_ws, logger=None, arcpy_messages=None):
+    """
+    This function uses the WMX tokens and the production workspace to determine the "short username",
+    which is how ArcGIS handles user names, as well as the version name. The short username
+    is a derivative of the full username that is used in the version names that are created by
+    WMX. An example full username is "SVC\AVITALE", whereas the short username is just AVITALE.
+    
+    Since the version names contain so many special characters, passing in the [JOB:VERSION_NAME] token
+    via a WMX Geoprocessing Tool was creating errors. WMX handles the arguments as string, joined by a space
+    character. Rather than hack at that for days, I decided to just take the component information
+    and plug it into a pre-formatted string to get the version name.
+
+    There is a small bug in WMX. Depending on how the job is assigned, the username will be all
+    caps (expected) or all lowercase (not expected). Due to that, this function tries to use
+    the short username as passed in to create the version name. If that doesn't work, it tries to use 
+    the short username in all caps. If that doesn't work, it tries to use all lowercase. If that 
+    doesn't work, it throws its hands up in the air and complains with an Exception.
+
+    Arguments
+    ---------
+    :param job__owned_by: The username from the WMX [JOB:OWNED_BY] token.
+    :param job__id: The [JOB:ID] WMX token or number if executed manually.
+    :param production_ws: Filepath to the SDE file pointing to the correct database. The version of the SDE filepath
+        does not matter as long as it exists. The function will change to the user's version.
+
+    :returns tuple: Returns a tuple containing the short username and the name of the
+        version, which is confirmed to exist in the production_ws. The return order
+        will always be user, production_ws_version
+    :raises VersionDoesNotExistError: Raises this exception when the version name
+        that's been generated in the code does not exist in the production_ws
+    """
     # Assemble the version name from its component parts. This is much easier than passing in
     #  the version name, as version names contain " and \ characters :-|
     if '\\' in job__owned_by:
