@@ -533,7 +533,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         connection = arcpy.ArcSDESQLExecute(production_ws)
         # Change the SDE versioned view to the Workflow Manager version
-        connection.execute("""EXEC ELRS.sde.set_current_version '{version_name}';""".format(
+        connection.execute('EXEC ELRS.sde.set_current_version \'{version_name}\';'.format(
             version_name=production_ws_version
         ))
 
