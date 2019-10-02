@@ -547,7 +547,8 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             arcpy.Buffer_analysis(
                 version_select_milepoint_layer,
                 area_of_interest,
-                '10 Meters'
+                '10 Meters',
+                dissolve_option='ALL'
             )
             log_it('', level='gp', logger=logger, arcpy_messages=messages)
         else:
