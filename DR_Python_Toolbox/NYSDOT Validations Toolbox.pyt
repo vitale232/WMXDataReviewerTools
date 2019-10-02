@@ -1088,7 +1088,7 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
         
         elif check_description == 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROUTE_QUALIFIER <> 10 AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
+            where_clause = '(ROUTE_QUALIFIER <> 10 OR ROUTE_QUALIFIER IS NULL) AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
         
         elif check_description == 'PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
             where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
