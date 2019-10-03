@@ -84,9 +84,20 @@ class NYSDOTValidationsMixin(object):
             category='Logging'
         )
 
+        log_level_param = arcpy.Parameter(
+            displayName='Logging Level',
+            name='log_level',
+            datatype='GPString',
+            parameterType='Required',
+            category='Logging'
+        )
+        log_level_param.filter.type = 'ValueList'
+        log_level_param.filter.list = ['DEBUG', 'INFO']
+        log_level_param.value = 'DEBUG'
+
         params = [
             job__started_date_param, job__owned_by_param, job__id_param,
-            production_ws_param, reviewer_ws_param, log_path_param
+            production_ws_param, reviewer_ws_param, log_path_param, log_level_param
         ]
 
         return params
@@ -128,11 +139,20 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
         production_ws = parameters[3].valueAsText
         reviewer_ws = parameters[4].valueAsText
         log_path = parameters[5].valueAsText
+        log_level = parameters[6].valueAsText
 
         if log_path == '':
             log_path = None
+        
+        if log_level.upper() == 'INFO':
+            log_level = 20
+        elif log_level.upper() == 'DEBUG':
+            log_level = 10
+        else:
+            # Fall back to info level logging
+            log_level = 20
 
-        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+        logger = initialize_logger(log_path=log_path, log_level=log_level)
 
         run_sql_validations(
             reviewer_ws,
@@ -196,7 +216,8 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         production_ws = parameters[3].valueAsText
         reviewer_ws = parameters[4].valueAsText
         log_path = parameters[5].valueAsText
-        full_db_flag = parameters[6].valueAsText
+        log_level = parameters[6].valueAsText
+        full_db_flag = parameters[7].valueAsText
 
         if full_db_flag == 'true':
             full_db_flag = True
@@ -206,7 +227,15 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         if log_path == '':
             log_path = None
 
-        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+        if log_level.upper() == 'INFO':
+            log_level = 20
+        elif log_level.upper() == 'DEBUG':
+            log_level = 10
+        else:
+            # Fall back to info level logging
+            log_level = 20
+
+        logger = initialize_logger(log_path=log_path, log_level=log_level)
 
         run_roadway_level_attribute_checks(
             reviewer_ws,
@@ -276,13 +305,22 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
         production_ws = parameters[3].valueAsText
         reviewer_ws = parameters[4].valueAsText
         log_path = parameters[5].valueAsText
-        batch_job_file = parameters[6].valueAsText
-        full_db_flag = parameters[7].valueAsText
+        log_level = parameters[6].valueAsText
+        batch_job_file = parameters[7].valueAsText
+        full_db_flag = parameters[8].valueAsText
 
         if log_path == '':
             log_path = None
 
-        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+        if log_level.upper() == 'INFO':
+            log_level = 20
+        elif log_level.upper() == 'DEBUG':
+            log_level = 10
+        else:
+            # Fall back to info level logging
+            log_level = 20
+
+        logger = initialize_logger(log_path=log_path, log_level=log_level)
 
         run_batch_on_buffered_edits(
             reviewer_ws,
@@ -350,8 +388,9 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         production_ws = parameters[3].valueAsText
         reviewer_ws = parameters[4].valueAsText
         log_path = parameters[5].valueAsText
-        batch_job_file = parameters[6].valueAsText
-        full_db_flag = parameters[7].valueAsText
+        log_level = parameters[6].valueAsText
+        batch_job_file = parameters[7].valueAsText
+        full_db_flag = parameters[8].valueAsText
 
         if full_db_flag == 'true':
             full_db_flag = True
@@ -361,7 +400,15 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         if log_path == '':
             log_path = None
 
-        logger = initialize_logger(log_path=log_path, log_level=logging.DEBUG)
+        if log_level.upper() == 'INFO':
+            log_level = 20
+        elif log_level.upper() == 'DEBUG':
+            log_level = 10
+        else:
+            # Fall back to info level logging
+            log_level = 20
+
+        logger = initialize_logger(log_path=log_path, log_level=log_level)
 
         run_batch_on_buffered_edits(
             reviewer_ws,
