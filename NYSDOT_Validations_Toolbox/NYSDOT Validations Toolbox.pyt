@@ -443,6 +443,9 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             messages=messages
         )
 
+        log_it('#'*4 + ' All validations have completed without error! ' + '#'*4,
+            level='info', logger=logger, arcpy_messages=messages)
+
         return True
 
 
@@ -766,6 +769,9 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
                     'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
                     'Selected FCs: {}'.format(milepoint_fcs)
                 )
+
+            log_it('Creating versioned view of {}'.format(milepoint_fc),
+                level='debug', logger=logger, arcpy_messages=messages)
 
             sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
                 milepoint_fc,
