@@ -700,6 +700,8 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
         unique_co_dir_result = connection.execute(unique_co_dir_sql)
+        log_it(str(unique_rdwy_attrs_result), 'debug', logger=logger, arcpy_messages=messages)
+        log_it(str(unique_co_dir_result), 'debug', logger=logger, arcpy_messages=messages)
 
         # If the query succeeds but the response is empty, arcpy returns a python
         #  boolean type with a True value. Convert booleans to an empty list to 
@@ -1630,32 +1632,49 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
     -------
     :returns bool: Returns True when successful
     """
-    if level.lower() == 'info':
+    if not level in ('info', 'debug', 'error', 'warn', 'gp'):
+        raise ValueError('Parameter \'level\' must be one of (info, debug, error, warn, gp)')
+
+    if logger:
+        logger_level = logger.level
+    else:
+        # Python logging module represents INFO logging as 20 and DEBUG as 10.
+        #  If there is no Python logger, fall back to info level logging
+        logger_level = 20
+
+    arcpy_message = '{datetime} [{level:<5}]  {message}'.format(
+        datetime=datetime.datetime.now(),
+        level=level.upper(),
+        message=message
+    )
+
+    if level.lower() == 'info' and logger_level <= 20:
         if logger:
             logging.info(message)
         if arcpy_messages:
-            arcpy_messages.addMessage(message)
-    elif level.lower() == 'debug':
+            arcpy_messages.addMessage(arcpy_message)
+    elif level.lower() == 'debug' and logger_level <= 10:
         if logger:
             logging.debug(message)
         if arcpy_messages:
-            arcpy_messages.addMessage(message)
+            arcpy_messages.addMessage(arcpy_message)
     elif level.lower() == 'error':
         if logger:
             logging.error(message)
         if arcpy_messages:
-            arcpy_messages.addErrorMessage(message)
+            arcpy_messages.addErrorMessage(arcpy_message)
     elif level.lower() == 'warn':
         if logger:
             logger.warn(message)
         if arcpy_messages:
-            arcpy_messages.addWarningMessage(message)
+            arcpy_messages.addWarningMessage(arcpy_message)
     elif level.lower() == 'gp':
         if arcpy_messages:
+            arcpy_messages.addMessage(arcpy_message)
             arcpy_messages.addGPMessages()
             message = arcpy.GetMessages()
             logger.info(message)
     else:
-        raise ValueError('Parameter \'level\' must be one of (info, debug, error, gp)')
+        pass
 
     return True
