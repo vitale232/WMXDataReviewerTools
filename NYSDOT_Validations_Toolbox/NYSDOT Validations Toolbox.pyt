@@ -700,8 +700,6 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
         unique_co_dir_result = connection.execute(unique_co_dir_sql)
-        log_it(str(unique_rdwy_attrs_result), 'debug', logger=logger, arcpy_messages=messages)
-        log_it(str(unique_co_dir_result), 'debug', logger=logger, arcpy_messages=messages)
 
         # If the query succeeds but the response is empty, arcpy returns a python
         #  boolean type with a True value. Convert booleans to an empty list to 
@@ -1503,7 +1501,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     # Get the DOT_IDs out of the SQL query results, and store them as a list
     dot_ids = [result_row[dot_id_index] for result_row in result_list]
     # Account for the rare case where a DOT_ID does not exist, which will be caught in another validation
-    dot_ids = ['' for dot_id in dot_ids if dot_id is None]
+    dot_ids = ['' if dot_id is None else dot_id for dot_id in dot_ids]
 
     # Select the DOT_IDs identified above on the active route data
     where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "') AND TO_DATE IS NULL"
