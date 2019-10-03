@@ -1,3 +1,7 @@
+# This file is not actually the ArcGIS Python Toolbox. The Python Toolbox is the file of the 
+# same name, but with the ".pyt" extension. This file is intended for use with a debugger,
+# like the debugger present in VSCode. It is likely to come out of sync with the .pyt file.
+
 from collections import defaultdict
 import datetime
 import logging
