@@ -9,6 +9,9 @@ import traceback
 import arcpy
 
 
+ACTIVE_ROUTES_QUERY = '(FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND (TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP)'
+
+
 class Toolbox(object):
     """
     This is the Python Toolbox definition that constructs the geoprocessing 
@@ -91,6 +94,23 @@ class NYSDOTValidationsMixin(object):
             parameterType='Required',
             category='Logging'
         )
+
+        if arcpy.Exists(r'Database Connections\dev_elrs_ad_Lockroot.sde'):
+            production_ws_param.value = r'Database Connections\dev_elrs_ad_Lockroot.sde'
+        elif arcpy.Exists(r'Database Connections\dev_elrs_ad_Lockroot.sde'):
+            production_ws_param.value = r'Database Connections\dev_elrs_ad_lockroot.sde'
+        else:
+            pass
+        
+        if arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_ad.sde'):
+            reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_ad.sde'
+        elif arcpy.Exists(r'Database Connections\dev_elrs_DataReviewer_ad.sde'):
+            reviewer_ws_param.value = r'Database Connections\dev_elrs_DataReviewer_ad.sde'
+        elif arcpy.Exists(r'Database Connections\dev_elrs_Datareviewer_ad.sde'):
+            reviewer_ws_param.value = r'Database Connections\dev_elrs_Datareviewer_ad.sde'
+        else:
+            pass
+
         log_level_param.filter.type = 'ValueList'
         log_level_param.filter.list = ['DEBUG', 'INFO']
         log_level_param.value = 'DEBUG'
@@ -539,15 +559,16 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             milepoint_fc = milepoint_fcs[0]
         else:
             raise ValueError(
-                'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
+                'Too many or too few feature classes were selected while trying to find LRSN_Milepoint. ' +
                 'Selected FCs: {}'.format(milepoint_fcs)
             )
 
         if not full_db_flag:
             # Filter out edits made by this user on this version since its creation
-            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
+            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND ({active_routes})'.format(
                 date=job__started_date,
-                user=user.upper()
+                user=user.upper(),
+                active_routes=ACTIVE_ROUTES_QUERY
             )
         else:
             where_clause = None
@@ -614,8 +635,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             arcpy_messages=messages
         )
 
-        log_it(('Calling ExecuteReviewerBatchJob_Reviewer ' +
-            'geoprocessing tool at {}'.format(datetime.datetime.now())),
+        log_it('Calling ExecuteReviewerBatchJob_Reviewer geoprocessing tool',
             level='debug', logger=logger, arcpy_messages=messages)
 
         reviewer_results = arcpy.ExecuteReviewerBatchJob_Reviewer(
@@ -923,11 +943,12 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         #  Otherwise, follow the typical pattern of selecting the data edited by this user
         #  in this version since it was created.
         if full_db_flag:
-            where_clause = 'TO_DATE IS NULL'
+            where_clause = ACTIVE_ROUTES_QUERY
         else:
-            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND TO_DATE IS NULL'.format(
+            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND ({active_routes})'.format(
                 date=job__started_date,
-                user=user.upper()
+                user=user.upper(),
+                active_routes=ACTIVE_ROUTES_QUERY
             )
         log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
@@ -966,6 +987,11 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
                 results = validate_by_roadway_type(roadway_type, attributes)
                 for rule_rids in results.items():
                     violations[rule_rids[0]].append(*rule_rids[1])
+
+        if len(violations) == 0:
+            log_it('  0 roadway level attribute violations found. Exiting with success code',
+                level='info', logger=logger, arcpy_messages=messages)
+            return True
 
         session_name = get_reviewer_session_name(
             reviewer_ws,
@@ -1133,22 +1159,22 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         #  ROUTE_ID IN () style query. Force a different where_clause for these cases to support
         #  the full_db_flag
         if check_description == 'SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'SIGNING IS NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
+            where_clause = 'SIGNING IS NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
 
         elif check_description == 'ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
+            where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
         
         elif check_description == 'ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
+            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND {()}'.format(ACTIVE_ROUTES_QUERY)
         
         elif check_description == 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = '(ROUTE_QUALIFIER <> 10 OR ROUTE_QUALIFIER IS NULL) AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
+            where_clause = '(ROUTE_QUALIFIER <> 10 OR ROUTE_QUALIFIER IS NULL) AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
         
         elif check_description == 'PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2) AND TO_DATE IS NULL'
+            where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
 
         else:
-            where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
+            where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND ({})".format(ACTIVE_ROUTES_QUERY)
 
         if base_where_clause:
             violations_where_clause = '({base_where}) AND ({validation_where})'.format(
@@ -1169,6 +1195,9 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         )
 
         in_memory_fc = to_in_memory_fc(versioned_layer)
+
+        log_it('Calling WriteToReviewerTable_Reviewer geoprocessing tool',
+            level='debug', logger=logger, arcpy_messages=arcpy_messages)
 
         arcpy.WriteToReviewerTable_Reviewer(
             reviewer_ws,
@@ -1315,9 +1344,23 @@ def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
     :raises NoReviewerSessionIDError: If the session_id cannot be determined, a NoReviewerSessionIDError
         Exception is raised
     """
-    reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
-    session_table = os.path.join(reviewer_ws, 'GDB_REVSESSIONTABLE')
+    # Get the current workspace, set the new workspace to the Reviewer Workspace, then switch
+    #  back to the original at the end of the function's work
+    original_ws = arcpy.env.workspace
+    arcpy.env.workspace = reviewer_ws
+    session_tables = [table for table in arcpy.ListTables('*GDB_REVSESSIONTABLE')]
+    log_it(str(arcpy.ListTables()), level='info', arcpy_messages=messages)
+    if len(session_tables) == 1:
+        session_table = session_tables[0]
+    elif arcpy.Exists(os.path.join(reviewer_ws, 'GDB_REVSESSIONTABLE')):
+        session_table = os.path.join(reviewer_ws, 'GDB_REVSESSIONTABLE')
+    else:
+        raise ValueError(
+            'Too many or too few tables were selected while trying to find GDB_REVSESSIONTABLE. ' +
+            'Selected tables: {}'.format(session_tables)
+        )
 
+    reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
     with arcpy.da.SearchCursor(session_table, reviewer_fields, where_clause=reviewer_where_clause) as curs:
         for row in curs:
             session_id = row[0]
@@ -1325,6 +1368,8 @@ def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
         session_id
     except UnboundLocalError:
         raise NoReviewerSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+    
+    arcpy.env.workspace = original_ws
     return session_id
 
 def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_messages=None):
@@ -1361,6 +1406,7 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
             user=user,
             job_id=job_id
         )
+
         session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
     except NoReviewerSessionIDError:
         try:
@@ -1486,7 +1532,7 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
 
     where_clause = ''
     for dot_id, county_order in zip(dot_ids, county_orders):
-        where_clause += '(DOT_ID = \'{}\' AND COUNTY_ORDER = \'{}\' AND TO_DATE IS NULL) OR '.format(dot_id, county_order)
+        where_clause += '(DOT_ID = \'{}\' AND COUNTY_ORDER = \'{}\' AND ({}) OR '.format(dot_id, county_order, ACTIVE_ROUTES_QUERY)
     # Remove the extra ' OR ' from the where_clause from the last iteration
     where_clause = where_clause[:-4]
     log_it('{}: SQL Results where_clause: {}'.format(log_name, where_clause),
@@ -1499,6 +1545,9 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
     )
 
     in_memory_fc = to_in_memory_fc(versioned_layer)
+
+    log_it('Calling WriteToReviewerTable_Reviewer geoprocessing tool',
+        level='debug', logger=logger, arcpy_messages=arcpy_messages)
 
     arcpy.WriteToReviewerTable_Reviewer(
         reviewer_ws,
@@ -1557,7 +1606,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     dot_ids = ['' if dot_id is None else dot_id for dot_id in dot_ids]
 
     # Select the DOT_IDs identified above on the active route data
-    where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "') AND TO_DATE IS NULL"
+    where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "') AND ({})".format(ACTIVE_ROUTES_QUERY)
     arcpy.SelectLayerByAttribute_management(
         versioned_layer,
         'NEW_SELECTION',
@@ -1593,13 +1642,13 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
         if row[0] == 1
     ]
 
-    output_where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND TO_DATE IS NULL"
+    output_where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND ({})".format(ACTIVE_ROUTES_QUERY)
 
     log_it('{}: SQL Results where_clause: {}'.format(log_name, output_where_clause),
         level='info', logger=logger, arcpy_messages=arcpy_messages)
 
     if len(route_ids) == 0:
-        log_it('    0 violations were found. Exiting with success code.',
+        log_it('    0 SQL query violations were found. Exiting with success code.',
             level='info', logger=logger, arcpy_messages=arcpy_messages)
         return True
 
@@ -1610,6 +1659,9 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     )
 
     in_memory_fc = to_in_memory_fc(versioned_layer)
+
+    log_it('Calling WriteToReviewerTable_Reviewer geoprocessing tool',
+        level='debug', logger=logger, arcpy_messages=arcpy_messages)
 
     arcpy.WriteToReviewerTable_Reviewer(
         reviewer_ws,
