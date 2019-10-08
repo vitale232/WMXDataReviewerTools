@@ -97,11 +97,13 @@ class NYSDOTValidationsMixin(object):
 
         if arcpy.Exists(r'Database Connections\dev_elrs_ad_Lockroot.sde'):
             production_ws_param.value = r'Database Connections\dev_elrs_ad_Lockroot.sde'
-        elif arcpy.Exists(r'Database Connections\dev_elrs_ad_Lockroot.sde'):
+        elif arcpy.Exists(r'Database Connections\dev_elrs_ad_lockroot.sde'):
             production_ws_param.value = r'Database Connections\dev_elrs_ad_lockroot.sde'
+        elif arcpy.Exists(r'Database Connections\dev_elrs_ad_LockRoot.sde'):
+            production_ws_param.value = r'Database Connections\dev_elrs_ad_LockRoot.sde'
         else:
             pass
-        
+
         if arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_ad.sde'):
             reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_ad.sde'
         elif arcpy.Exists(r'Database Connections\dev_elrs_DataReviewer_ad.sde'):
