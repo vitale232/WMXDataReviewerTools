@@ -1321,7 +1321,7 @@ def validate_by_roadway_type(roadway_type, attributes):
     return violations
 
 
-def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
+def query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=None, messages=None):
     """
     Passing the [REVSESSION:ID] token from WMX was not producing the desired result, so 
     I've resorted to reading the session ID directly from the Reviewer Workspace. The session ID
@@ -1365,7 +1365,8 @@ def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
             'Too many or too few tables were selected while trying to find GDB_REVSESSIONTABLE. ' +
             'Selected tables: {}'.format(session_tables)
         )
-
+    log_it('Reviewer Session table determined to be: {}'.format(session_table),
+        level='debug', logger=logger, messages=messages)
     reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
     with arcpy.da.SearchCursor(session_table, reviewer_fields, where_clause=reviewer_where_clause) as curs:
         for row in curs:
@@ -1413,7 +1414,7 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
             job_id=job_id
         )
 
-        session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
+        session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=logger, messages=arcpy_messages)
     except NoReviewerSessionIDError:
         try:
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
@@ -1421,14 +1422,14 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
                 job_id=job_id
             )
 
-            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
+            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=logger, messages=arcpy_messages)
         except NoReviewerSessionIDError:
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
                 user=user.upper(),
                 job_id=job_id
             )
 
-            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=arcpy_messages)
+            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=logger, messages=arcpy_messages)
 
     try:
         reviewer_session = 'Session {session_id} : {job_id}'.format(
