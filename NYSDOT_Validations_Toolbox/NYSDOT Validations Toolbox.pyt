@@ -1351,7 +1351,11 @@ def query_reviewer_table(reviewer_ws, reviewer_where_clause, messages=None):
     original_ws = arcpy.env.workspace
     arcpy.env.workspace = reviewer_ws
     session_tables = [table for table in arcpy.ListTables('*GDB_REVSESSIONTABLE')]
-    log_it(str(arcpy.ListTables()), level='info', arcpy_messages=messages)
+
+    # If reviewer_ws is an SDE workspace, session_tables will be a list with one element containing
+    #  the databasename.databaseuser.GDB_REVSESSIONTABLE
+    #  File geodatabases do not return this table when using ListTables, so if the length is not
+    #  1, try to join the reviewer_ws directly to the table name 
     if len(session_tables) == 1:
         session_table = session_tables[0]
     elif arcpy.Exists(os.path.join(reviewer_ws, 'GDB_REVSESSIONTABLE')):
