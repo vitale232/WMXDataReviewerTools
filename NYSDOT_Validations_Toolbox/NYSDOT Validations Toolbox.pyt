@@ -522,8 +522,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
     -----------------
     :param full_db_flag: Defaults to False. If True, all features will be validated. If False, only
         features edited by the user in their version will be validated.
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
 
@@ -716,8 +715,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
     
     Keyword Arguments
     -----------------
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
 
@@ -909,8 +907,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
     -----------------
     :param full_db_flag: Defaults to False. If True, all features will be validated. If False, only
         features edited by the user in their version will be validated.
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
     
@@ -1150,8 +1147,7 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         the where_clause that identifies the edited data into this function, so that only relevant violations
         are committed to the Reviewer Table
     :param level: A str that identifies the log level. Passed to the `log_it` function
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param arcpy_messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
     
@@ -1411,8 +1407,7 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
     
     Keyword Arguments
     -----------------
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param arcpy_messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
     
@@ -1556,8 +1551,7 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
     :param county_order_index: Defaults to 1. The index position of the county_order in the `result_list`
     :param log_name: Defaults to an empty string. The desired filepath for the log file
     :param level: Defaults to 'info'. The string identifying the log level, passed to the `log_it` function
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param arcpy_messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
 
@@ -1633,8 +1627,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     :param dot_id_index: Defaults to 0. The index position of the DOT_ID in the `result_list`
     :param log_name: Defaults to an empty string. The desired filepath for the log file
     :param level: Defaults to 'info'. The string identifying the log level, passed to the `log_it` function
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param arcpy_messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
 
@@ -1768,8 +1761,7 @@ def log_it(message, level='info', logger=None, arcpy_messages=None):
     -----------------
     :param level: A string equal to 'info', 'debug', 'error', 'warn', or 'gp' (case insensitive)
         which will determine the level of logging for both arcpy and the Python logger
-    :param logger: Defaults to None. If set, should be a filepath pointing to a location on disk to output
-        the log file.
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
     :param messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
         in the `execute` method of Python Toolboxes.
 
