@@ -548,7 +548,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         )
 
         if not full_db_flag:
-            log_it(('Calling run_batch_on_buffered_edits(): Selecting edits by this {} '.format(user) +
+            log_it(('Calling run_batch_on_buffered_edits(): Selecting edits made by {} '.format(user) +
                     'in {} and buffering by 10 meters'.format(production_ws_version)),
                     level='info', logger=logger, arcpy_messages=messages)
         else:
