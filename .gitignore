@@ -1,4 +1,3 @@
-.vscode
 *.pyc
 *.geojson
 logs/*
