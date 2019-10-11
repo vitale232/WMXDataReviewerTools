@@ -9,7 +9,9 @@ import traceback
 import arcpy
 
 
-ACTIVE_ROUTES_QUERY = '(FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND (TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP)'
+ACTIVE_ROUTES_QUERY = (
+    '(FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND (TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP)'
+)
 
 
 class Toolbox(object):
@@ -728,9 +730,13 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         arcpy.CheckOutExtension('datareviewer')
 
         unique_rdwy_attrs_sql= (
-            'SELECT DOT_ID, COUNTY_ORDER, COUNT (DISTINCT CONCAT(SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG)) ' +
+            'SELECT DOT_ID, COUNTY_ORDER, ' +
+                'COUNT (DISTINCT CONCAT(SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ' +
+                'ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG)) ' +
             'FROM ELRS.elrs.LRSN_Milepoint_evw ' +
-            'WHERE (FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND (TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP) ' +
+            'WHERE ' +
+                '(FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND ' +
+                '(TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP) ' +
             'GROUP BY DOT_ID, COUNTY_ORDER ' +
             'HAVING COUNT (DISTINCT CONCAT(SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ' +
             'ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG))>1;'
@@ -739,7 +745,9 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         unique_co_dir_sql = (
             'SELECT DOT_ID, COUNTY_ORDER, DIRECTION, COUNT (1) ' +
             'FROM ELRS.elrs.LRSN_Milepoint_evw ' +
-            'WHERE (FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND (TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP) ' +
+            'WHERE ' +
+                '(FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND ' +
+                '(TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP) ' +
             'GROUP BY DOT_ID, COUNTY_ORDER, DIRECTION ' +
             'HAVING COUNT (1)>1;'
         )
@@ -1170,7 +1178,10 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND {()}'.format(ACTIVE_ROUTES_QUERY)
         
         elif check_description == 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = '(ROUTE_QUALIFIER <> 10 OR ROUTE_QUALIFIER IS NULL) AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
+            where_clause = (
+                '(ROUTE_QUALIFIER <> 10 OR ROUTE_QUALIFIER IS NULL) AND ' +
+                'ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
+            )
         
         elif check_description == 'PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
             where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
@@ -1237,7 +1248,8 @@ def validate_by_roadway_type(roadway_type, attributes):
     :param attributes: A list of values that represent the roadway level attribute coded values from the
         database for the specific feature that is being validated. The attributes must be constructed
         in this order: [
-            rid, dot_id, county_order, signing, route_number, route_suffix, route_qualifier, parkway_flag, roadway_feature
+            route_id, dot_id, county_order, signing, route_number,
+            route_suffix, route_qualifier, parkway_flag, roadway_feature
         ]
     
     Returns
@@ -1246,7 +1258,8 @@ def validate_by_roadway_type(roadway_type, attributes):
         as the dict items, and the rule(s) that was validated as the default dict keys.
     :raises AttributeError: Raises an AttributeError if the roadway_type is not within the valid range
     """
-    rid, dot_id, county_order, signing, route_number, route_suffix, route_qualifier, parkway_flag, roadway_feature = attributes
+    (route_id, dot_id, county_order, signing, route_number,
+        route_suffix, route_qualifier, parkway_flag, roadway_feature) = attributes
     if roadway_type not in [1, 2, 3, 4, 5]:
         raise AttributeError(
             'ROADWAY_TYPE is outside of the valid range. Must be one of (1, 2, 3, 4 ,5). ' +
@@ -1256,61 +1269,61 @@ def validate_by_roadway_type(roadway_type, attributes):
     violations = defaultdict(list)
 
     # All validations regardless of ROADWAY_TYPE
-    if not re.match(r'^\d{9}$', str(rid)):
-        violations['ROUTE_ID must be a nine digit number'].append(rid)
+    if not re.match(r'^\d{9}$', str(route_id)):
+        violations['ROUTE_ID must be a nine digit number'].append(route_id)
     if not re.match(r'^\d{6}$', str(dot_id)):
-        violations['DOT_ID must be a six digit number'].append(rid)
+        violations['DOT_ID must be a six digit number'].append(route_id)
     if not re.match(r'^\d{2}$', str(county_order)):
-        violations['COUNTY_ORDER must be a zero padded two digit number (e.g. \'01\')'].append(rid)
+        violations['COUNTY_ORDER must be a zero padded two digit number (e.g. \'01\')'].append(route_id)
     
     if county_order and int(county_order) == 0:
-        violations['COUNTY_ORDER must be greater than \'00\''].append(rid)
+        violations['COUNTY_ORDER must be greater than \'00\''].append(route_id)
     if county_order and int(county_order) > 28:
-        violations['COUNTY_ORDER should be less than \'29\''].append(rid)
+        violations['COUNTY_ORDER should be less than \'29\''].append(route_id)
 
     # Validations for ROADWAY_TYPE = Road or Ramp
     if roadway_type == 1 or roadway_type == 2:
         if signing:
-            violations['SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+            violations['SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(route_id)
         if route_number:
-            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(route_id)
         if route_suffix:
-            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(route_id)
         if route_qualifier != 10:    # 10 is "No Qualifier"
             violations[(
                 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')'
-            )].append(rid)
+            )].append(route_id)
         if parkway_flag == 'T':      # T is "Yes"
-            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(route_id)
         if roadway_feature:
-            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(rid)
+            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')'].append(route_id)
 
     # Validations for ROADWAY_TYPE = Route
     elif roadway_type == 3:
         if not route_number:
-            violations['ROUTE_NUMBER must not be null when ROADWAY_TYPE=Route'].append(rid)
+            violations['ROUTE_NUMBER must not be null when ROADWAY_TYPE=Route'].append(route_id)
         if roadway_feature:
-            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE=Route'].append(rid)
+            violations['ROADWAY_FEATURE must be null when ROADWAY_TYPE=Route'].append(route_id)
         if not signing and not re.match(r'^9\d{2}$', str(route_number)):
             violations[(
                 'ROUTE_NUMBER must be a \'900\' route (i.e. 9xx) when ' +
                 'ROADWAY_TYPE=Route and SIGNING is null'
-            )].append(rid)
+            )].append(route_id)
 
     # Validations for ROADWAY_TYPE = Non-Mainline
     elif roadway_type == 5:
         if signing:
-            violations['SIGNING must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+            violations['SIGNING must be null when ROADWAY_TYPE=Non-Mainline'].append(route_id)
         if route_number:
-            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+            violations['ROUTE_NUMBER must be null when ROADWAY_TYPE=Non-Mainline'].append(route_id)
         if route_suffix:
-            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+            violations['ROUTE_SUFFIX must be null when ROADWAY_TYPE=Non-Mainline'].append(route_id)
         if route_qualifier != 10:   # 10 is "No Qualifier"
-            violations['ROUTE_QUALIFIER must be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+            violations['ROUTE_QUALIFIER must be null when ROADWAY_TYPE=Non-Mainline'].append(route_id)
         if parkway_flag == 'T':      # T is "Yes"
-            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE=Non-Mainline'].append(rid)
+            violations['PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE=Non-Mainline'].append(route_id)
         if not roadway_feature:
-            violations['ROADWAY_FEATURE must not be null when ROADWAY_TYPE=Non-Mainline'].append(rid)
+            violations['ROADWAY_FEATURE must not be null when ROADWAY_TYPE=Non-Mainline'].append(route_id)
 
     else:
         raise AttributeError(
@@ -1374,7 +1387,9 @@ def query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=None, messag
     try:
         session_id
     except UnboundLocalError:
-        raise NoReviewerSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+        raise NoReviewerSessionIDError(
+            'Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause)
+        )
     
     arcpy.env.workspace = original_ws
     return session_id
@@ -1414,7 +1429,12 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
             job_id=job_id
         )
 
-        session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=logger, messages=arcpy_messages)
+        session_id = query_reviewer_table(
+            reviewer_ws,
+            reviewer_where_clause,
+            logger=logger,
+            messages=arcpy_messages
+        )
     except NoReviewerSessionIDError:
         try:
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
@@ -1422,15 +1442,24 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
                 job_id=job_id
             )
 
-            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=logger, messages=arcpy_messages)
+            session_id = query_reviewer_table(
+                reviewer_ws,
+                reviewer_where_clause,
+                logger=logger,
+                messages=arcpy_messages
+            )
         except NoReviewerSessionIDError:
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
                 user=user.upper(),
                 job_id=job_id
             )
 
-            session_id = query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=logger, messages=arcpy_messages)
-
+            session_id = query_reviewer_table(
+                reviewer_ws,
+                reviewer_where_clause,
+                logger=logger,
+                messages=arcpy_messages
+            )
     try:
         reviewer_session = 'Session {session_id} : {job_id}'.format(
             session_id=session_id,
@@ -1439,7 +1468,9 @@ def get_reviewer_session_name(reviewer_ws, user, job_id, logger=None, arcpy_mess
         log_it('Reviewer session name determined to be \'{}\''.format(reviewer_session),
                 level='debug', logger=logger, arcpy_messages=arcpy_messages)
     except:
-        raise NoReviewerSessionIDError('Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause))
+        raise NoReviewerSessionIDError(
+            'Could not determine the session ID with where_clause: {}'.format(reviewer_where_clause)
+        )
     return reviewer_session
 
 def to_in_memory_fc(layer, new_field='ORIG_OBJECTID', check_fields=['ROUTE_ID', 'OBJECTID']):
@@ -1539,7 +1570,11 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
 
     where_clause = ''
     for dot_id, county_order in zip(dot_ids, county_orders):
-        where_clause += '(DOT_ID = \'{}\' AND COUNTY_ORDER = \'{}\' AND ({}) OR '.format(dot_id, county_order, ACTIVE_ROUTES_QUERY)
+        where_clause += '(DOT_ID = \'{dot_id}\' AND COUNTY_ORDER = \'{county_order}\' AND ({active_routes}) OR '.format(
+            dot_id=dot_id,
+            county_order=county_order,
+            active_routes=ACTIVE_ROUTES_QUERY
+        )
     # Remove the extra ' OR ' from the where_clause from the last iteration
     where_clause = where_clause[:-4]
     log_it('{}: SQL Results where_clause: {}'.format(log_name, where_clause),
