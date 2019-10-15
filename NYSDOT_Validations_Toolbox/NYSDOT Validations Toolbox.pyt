@@ -10,7 +10,6 @@ import arcpy
 
 import validation_helpers.utils as utils
 import validation_helpers.validations as validations
-import add
 
 
 class Toolbox(object):

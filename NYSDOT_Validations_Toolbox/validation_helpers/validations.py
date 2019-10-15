@@ -13,8 +13,6 @@ import validation_helpers.write as write
 from validation_helpers.active_routes import ACTIVE_ROUTES_QUERY
 
 
-
-
 def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 production_ws, job__id,
                                 job__started_date, job__owned_by,
