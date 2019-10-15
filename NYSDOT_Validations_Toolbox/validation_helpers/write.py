@@ -78,7 +78,8 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             violations_where_clause = where_clause
 
 
-        utils.log_it('{}: roadway_level_attribute_result where_clause={}'.format(check_description, violations_where_clause),
+        utils.log_it(
+            '{}: roadway_level_attribute_result where_clause={}'.format(check_description, violations_where_clause),
             level='info', logger=logger, arcpy_messages=arcpy_messages)
 
         arcpy.SelectLayerByAttribute_management(

@@ -185,7 +185,8 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             for in_memory_fc in fcs:
                 try:
                     arcpy.Delete_management(in_memory_fc)
-                    utils.log_it(' deleted: {}'.format(in_memory_fc), level='debug', logger=logger, arcpy_messages=messages)
+                    utils.log_it(' deleted: {}'.format(in_memory_fc),
+                        level='debug', logger=logger, arcpy_messages=messages)
                 except:
                     pass
         except:
@@ -383,7 +384,8 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
             for in_memory_fc in fcs:
                 try:
                     arcpy.Delete_management(in_memory_fc)
-                    utils.log_it(' deleted: {}'.format(in_memory_fc), level='debug', logger=logger, arcpy_messages=messages)
+                    utils.log_it(' deleted: {}'.format(in_memory_fc),
+                        level='debug', logger=logger, arcpy_messages=messages)
                 except:
                     pass
         except:
