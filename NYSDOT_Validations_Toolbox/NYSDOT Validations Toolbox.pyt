@@ -22,7 +22,7 @@ class Toolbox(object):
     http://desktop.arcgis.com/en/arcmap/10.5/analyze/creating-tools/a-quick-tour-of-python-toolboxes.htm
     """
     def __init__(self):
-        self.label = 'NYSDOT Validations Toolbox'
+        self.label = 'NYSDOT R&H Validation Toolbox'
         self.alias = 'validate'
 
         self.tools = [
