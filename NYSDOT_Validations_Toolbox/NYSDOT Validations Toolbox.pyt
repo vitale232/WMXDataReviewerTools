@@ -22,7 +22,7 @@ class Toolbox(object):
     http://desktop.arcgis.com/en/arcmap/10.5/analyze/creating-tools/a-quick-tour-of-python-toolboxes.htm
     """
     def __init__(self):
-        self.label = 'NYSDOT R&H Validation Toolbox'
+        self.label = 'NYSDOT R&H Validation Tools'
         self.alias = 'validate'
 
         self.tools = [
@@ -1564,7 +1564,7 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
 
     where_clause = ''
     for dot_id, county_order in zip(dot_ids, county_orders):
-        where_clause += '(DOT_ID = \'{dot_id}\' AND COUNTY_ORDER = \'{county_order}\' AND ({active_routes}) OR '.format(
+        where_clause += 'DOT_ID = \'{dot_id}\' AND COUNTY_ORDER = \'{county_order}\' AND ({active_routes}) OR '.format(
             dot_id=dot_id,
             county_order=county_order,
             active_routes=ACTIVE_ROUTES_QUERY
