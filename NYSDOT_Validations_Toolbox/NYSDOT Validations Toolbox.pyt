@@ -1375,7 +1375,7 @@ def query_reviewer_table(reviewer_ws, reviewer_where_clause, logger=None, messag
             'Selected tables: {}'.format(session_tables)
         )
     log_it('Reviewer Session table determined to be: {}'.format(session_table),
-        level='debug', logger=logger, messages=messages)
+        level='debug', logger=logger, arcpy_messages=messages)
     reviewer_fields = ['SESSIONID', 'USERNAME', 'SESSIONNAME']
     with arcpy.da.SearchCursor(session_table, reviewer_fields, where_clause=reviewer_where_clause) as curs:
         for row in curs:
