@@ -430,11 +430,6 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             # Fall back to info level logging
             log_level = 20
 
-        messages.addMessage(dir(utils))
-        messages.addMessage(add.add_things(10, 13))
-        messages.addMessage(validations.run_batch_on_buffered_edits)
-        messages.addMessage(dir(validations))
-        messages.addMessage(utils.initialize_logger)
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
 
         validations.run_batch_on_buffered_edits(
