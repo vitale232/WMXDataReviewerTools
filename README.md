@@ -11,6 +11,7 @@ ArcGIS geoprocessing tools and scripts to execute Esri Data Reviewer from Workfl
 | production_ws | Database Connections\dev_elrs_ad_Lockroot.sde |
 | reviewer_ws | Database Connections\dev_elrs_datareviewer_dr_user.sde |
 | log_path |  |
+| log_level | DEBUG |
 | batch_job_file | P:\Office of Engineering\Technical Services\Highway Data Services Bureau\GIS\Roads_And_Highways_Tools\WMXDataReviewerTools\Reviewer_Batch_Jobs\RoutesInternalEventsValidations.rbj |
 | full_db_flag |  |
 
