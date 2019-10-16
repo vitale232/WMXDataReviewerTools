@@ -432,6 +432,25 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
 
+        utils.log_it('ExecuteAllValidations.execute(): Generating versioned view of LRS Network',
+            level='info', logger=logger, arcpy_messages=messages)
+
+        user, production_ws_version = utils.get_user_and_version(
+            job__owned_by,
+            job__id,
+            production_ws,
+            logger=logger,
+            arcpy_messages=messages
+        )
+
+        milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
+            production_ws,
+            production_ws_version,
+        )
+        utils.log_it((
+            'ExecuteAllValidations.execute(): Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
+            level='info', logger=logger, arcpy_messages=messages)
+
         validations.run_batch_on_buffered_edits(
             reviewer_ws,
             batch_job_file,
@@ -439,6 +458,8 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
             full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
@@ -460,7 +481,9 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
-            full_db_flag,
+            version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
+            full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
         )

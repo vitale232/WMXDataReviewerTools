@@ -49,6 +49,61 @@ def check_for_version(production_ws_version, production_ws, version_names):
         )
     return True
 
+def get_version_milepoint_layer(production_ws, production_ws_version,
+                                wildcard='*LRSN_Milepoint',
+                                logger=None, arcpy_messages=None):
+    """
+    Get the name of the LRSN from the Roads and Highways ALRS using the wildcard keyward argument, and return
+    the feature class name. Generate a versioned FeatureLayer of the feature class, and return it.
+
+    Arguments
+    ---------
+    :param production_ws: Filepath to the SDE file pointing to the correct database. The version of the SDE filepath
+        does not matter as long as it exists. The function will change to the user's version.
+    :param production_ws_version: The version name that's expected to exist in the production_ws
+
+    Keyword Arguments
+    -----------------
+    :param wildcard: A wildcard expression that's passed to `arcpy.ListFeatureClasses` which identifies the
+        network feature class from the R&H ALRS
+    :param logger: Defaults to None. If set, should be Python logging module logger object.
+    :param arcpy_messages: Defaults to None. If set, should refer to the arcpy.Messages variable that is present
+        in the `execute` method of Python Toolboxes.
+
+    Returns
+    -------
+    :returns tuple: Returns a tuple of the milepoint_fc variable (ALRS Network Feature class) and a versioned
+        `arcpy.FeatureLayer` pointing to the milepoint_fc in the production_ws, referencing the production_ws_version
+    """
+    original_ws = arcpy.env.workspace
+    arcpy.env.workspace = production_ws
+
+    milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses(wildcard)]
+    if len(milepoint_fcs) == 1:
+        milepoint_fc = milepoint_fcs[0]
+    else:
+        raise ValueError(
+            'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
+            'Selected FCs: {}'.format(milepoint_fcs)
+        )
+
+    log_it('found milepoint FC: {}'.format(milepoint_fc),
+        level='warn', logger=logger, arcpy_messages=arcpy_messages)
+    sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
+        milepoint_fc,
+        'milepoint_layer_{}'.format(int(time.time()))
+    )
+
+    version_milepoint_layer = arcpy.ChangeVersion_management(
+        sde_milepoint_layer,
+        'TRANSACTIONAL',
+        version_name=production_ws_version
+    )
+
+    arcpy.env.workspace = original_ws
+
+    return milepoint_fc, version_milepoint_layer
+
 def get_user_and_version(job__owned_by, job__id, production_ws, logger=None, arcpy_messages=None):
     """
     This function uses the WMX tokens and the production workspace to determine the "short username",

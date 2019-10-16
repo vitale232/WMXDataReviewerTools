@@ -16,6 +16,8 @@ from validation_helpers.active_routes import ACTIVE_ROUTES_QUERY
 def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 production_ws, job__id,
                                 job__started_date, job__owned_by,
+                                version_milepoint_layer=None,
+                                milepoint_fc=None,
                                 full_db_flag=False,
                                 logger=None, messages=None):
     """
@@ -80,14 +82,11 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                 'all features in {}'.format(production_ws_version)),
                 level='info', logger=logger, arcpy_messages=messages)
 
-        # Select the milepoint LRS feature class from the workspace
-        milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
-        if len(milepoint_fcs) == 1:
-            milepoint_fc = milepoint_fcs[0]
-        else:
-            raise ValueError(
-                'Too many or too few feature classes were selected while trying to find LRSN_Milepoint. ' +
-                'Selected FCs: {}'.format(milepoint_fcs)
+        if not version_milepoint_layer:
+            # Select the milepoint LRS feature class from the workspace if not passed into function
+            milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
+                production_ws,
+                production_ws_version
             )
 
         if not full_db_flag:
@@ -98,27 +97,16 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                 active_routes=ACTIVE_ROUTES_QUERY
             )
         else:
-            where_clause = None
-
+            where_clause = ACTIVE_ROUTES_QUERY
+        utils.log_it('where_clause={}'.format(where_clause), logger=logger, arcpy_messages=messages)
         utils.log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
 
-        # Explicitly change version to the input version, as the SDE file could point to anything
-        sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
-            milepoint_fc,
-            'milepoint_layer_{}'.format(int(time.time()))
+        version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
+            version_milepoint_layer,
+            'NEW_SELECTION',
+            where_clause=where_clause
         )
-        version_milepoint_layer = arcpy.ChangeVersion_management(
-            sde_milepoint_layer,
-            'TRANSACTIONAL',
-            version_name=production_ws_version
-        )
-        if where_clause:
-            version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
-                version_milepoint_layer,
-                'NEW_SELECTION',
-                where_clause=where_clause
-            )
 
         if not full_db_flag:
             # Since the full_db_flag is False, let's find the features that were edited
@@ -398,7 +386,10 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
     return True
 
 def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
-                                       job__started_date, job__owned_by, full_db_flag=False,
+                                       job__started_date, job__owned_by,
+                                       version_milepoint_layer=None,
+                                       milepoint_fc=None,
+                                       full_db_flag=False,
                                        logger=None, messages=None):
     """
     This function manages the execution of the "Roadway level attribute" validations on the
@@ -463,13 +454,11 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             arcpy_messages=messages
         )
 
-        milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
-        if len(milepoint_fcs) == 1:
-            milepoint_fc = milepoint_fcs[0]
-        else:
-            raise ValueError(
-                'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
-                'Selected FCs: {}'.format(milepoint_fcs)
+        if not version_milepoint_layer:
+            # Get a versioned view of milepoint if not passed in
+            milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
+                production_ws,
+                production_ws_version
             )
 
         # If the full_db_flag is True, run the validations on all active routes (routes with no TO_DATE).
@@ -486,16 +475,6 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         utils.log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
 
-        # Explicitly change version to the input version, as the SDE file could point to anything
-        sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
-            milepoint_fc,
-            'milepoint_layer_{}'.format(int(time.time()))
-        )
-        version_milepoint_layer = arcpy.ChangeVersion_management(
-            sde_milepoint_layer,
-            'TRANSACTIONAL',
-            version_name=production_ws_version
-        )
         version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
             version_milepoint_layer,
             'NEW_SELECTION',
