@@ -526,7 +526,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
 
         if len(violations) == 0:
             utils.log_it('  0 roadway level attribute violations found. Exiting with success code',
-                level='info', logger=logger, arcpy_messages=messages)
+                level='warn', logger=logger, arcpy_messages=messages)
             return True
 
         session_name = utils.get_reviewer_session_name(
@@ -617,8 +617,8 @@ def validate_county_order_value(version_milepoint_layer, dot_id, direction,
         else:
             # If there is more than one ROUTE_ID for the DOT_ID/COUNTY_ORDER, there are two valid DIRECTION combos
             #  which are:
-            #  0 - Prim. Undivided w Inventory AND 3 - Not in RIS
-            #  1 - Prim Divided w Inventory AND 2 - Rev Divided w Inventory
+            #  0 - Prim. Dir. w Unvdivided Inventory AND 3 - Rev. Dir. w No Inventory
+            #  1 - Prim. Dir. w Divided Inventory AND 2 - Rev. Dir. w Divided Inventory
             direction_codes = [route_id_direction_str.split(':')[1] for route_id_direction_str in route_id_direction]
             if '0' in direction_codes:
                 valid_direction_codes = ['0', '3']
@@ -709,10 +709,12 @@ def validate_by_roadway_type(roadway_type, attributes):
     if not re.match(r'^\d{2}$', str(county_order)):
         violations['COUNTY_ORDER must be a zero padded two digit number (e.g. \'01\')'].append(route_id)
 
-    if county_order and int(county_order) == 0:
-        violations['COUNTY_ORDER must be greater than \'00\''].append(route_id)
-    if county_order and int(county_order) > 28:
-        violations['COUNTY_ORDER should be less than \'29\''].append(route_id)
+    # Only run these validations if the county order is a number
+    if re.match(r'^\d{2}$', str(county_order)):
+        if county_order and int(county_order) == 0:
+            violations['COUNTY_ORDER must be greater than \'00\''].append(route_id)
+        if county_order and int(county_order) > 28:
+            violations['COUNTY_ORDER should be less than \'29\''].append(route_id)
 
     # Validations for ROADWAY_TYPE = Road or Ramp
     if roadway_type == 1 or roadway_type == 2:
