@@ -16,3 +16,6 @@ ArcGIS geoprocessing tools and scripts to execute Esri Data Reviewer from Workfl
 | full_db_flag |  |
 
 *The parameters of the form [JOB:FOOBAR] refer to [Workflow Manager Tokens](https://desktop.arcgis.com/en/arcmap/10.5/extensions/workflow-manager/tokens.htm)*
+
+## Development Notes
++ With much of the code living in a Python package, it's hard to get ArcGIS to consistently update the tool. Just open a blank map document with the Data Reviewer extension activated whenever you'd like to test code changes.
