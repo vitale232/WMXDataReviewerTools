@@ -6,7 +6,7 @@ ArcGIS geoprocessing tools and scripts to execute Esri Data Reviewer from Workfl
 + VSCode is failing to correctly lint the validation_helpers package. It incorrectly identifies properly imported code. To workaround the issue, if you use the Open Folder function, open the ./NYSDOT_Validations_Toolbox directory instead of the project root or use a different IDE.
 
 # Setup
-## Workflow Manager Launch GP Tool Parameters
+## Workflow Manager Launch GP Tool Step Parameters
 | Parameter | Value |
 | ----------- | ----------- |
 | job__started_date | [JOB:STARTED_DATE] |
