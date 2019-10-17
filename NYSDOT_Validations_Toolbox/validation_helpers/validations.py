@@ -99,7 +99,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         else:
             where_clause = ACTIVE_ROUTES_QUERY
         utils.log_it('where_clause={}'.format(where_clause), logger=logger, arcpy_messages=messages)
-        utils.log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
+        utils.log_it('Using where_clause to find recent edits of {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
 
         version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
@@ -472,7 +472,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
                 user=user.upper(),
                 active_routes=ACTIVE_ROUTES_QUERY
             )
-        utils.log_it('Using where_clause on {}: {}'.format(milepoint_fc, where_clause),
+        utils.log_it('Using where_clause to find recent edits of {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
 
         version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
@@ -489,16 +489,40 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         #  should be careful with the field orders.
         attribute_fields = [
             'ROADWAY_TYPE', 'ROUTE_ID', 'DOT_ID', 'COUNTY_ORDER', 'SIGNING', 'ROUTE_NUMBER',
-            'ROUTE_SUFFIX', 'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE',
+            'ROUTE_SUFFIX', 'ROUTE_QUALIFIER', 'PARKWAY_FLAG', 'ROADWAY_FEATURE', 'DIRECTION',
         ]
         violations = defaultdict(list)
         with arcpy.da.SearchCursor(version_select_milepoint_layer, attribute_fields) as curs:
             for row in curs:
+                # Validate roadway level attributes
+                # Don't include ROADWAY_TYPE or DIRECTION in the attributes variable
                 roadway_type = row[0]
-                attributes = row[1:]
+                attributes = row[1:-1]
+
                 results = validate_by_roadway_type(roadway_type, attributes)
                 for rule_rids in results.items():
                     violations[rule_rids[0]].append(*rule_rids[1])
+
+                # Validate the COUNTY_ORDER range for this DOT_ID
+                dot_id = row[2]
+                county_order = row[3]
+                try:
+                    county_order_int = int(county_order)
+                except ValueError:
+                    # If the county_order is not integer like (e.g. '01'), it will be caught in validate_by_roadway_type
+                    pass
+                except TypeError:
+                    # If there  is no county_order, it will be caught in validate_by_roadway_type
+                    pass
+                else:
+                    direction = row[-1]
+                    county_order_results = validate_county_order_value(
+                        version_milepoint_layer,
+                        dot_id,
+                        direction
+                    )
+                    for violation_desc__rid in county_order_results.items():
+                        violations[violation_desc__rid[0]].extend(violation_desc__rid[1])
 
         if len(violations) == 0:
             utils.log_it('  0 roadway level attribute violations found. Exiting with success code',
@@ -529,6 +553,112 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         raise exc
 
     return True
+
+def validate_county_order_value(version_milepoint_layer, dot_id, direction,
+                                active_routes_where_clause=ACTIVE_ROUTES_QUERY):
+    """
+    This function ensures that COUNTY_ORDER values are valid for the validated route's DOT_ID.
+    Valid county orders should increment by a value of 1 as they traverse county boundaries, starting with a
+    COUNTY_ORDER of 01. If a DOT_ID crosses three counties, the expected COUNTY_ORDER sequence is
+    ('01, '02', '03').
+
+    Arguments
+    ---------
+    :param version_milepoint_layer: A versioned arcpy Feature Layer of the ALRS network feature class
+    :param dot_id: A string value of length 6 that identifies a unique roadway
+    :param direction: A string value of one of ('0', '1', '2', '3') that represents the route's direction
+        significance. Each code has a meaning associated with divided roadways and where the inventory data is stored
+
+    Keyword Arguments
+    -----------------
+    :param active_routes_where_clause: An ArcGIS where_clause that filters out retired data
+
+    Returns
+    -------
+    :returns violations: A defaultdict of a list that has the violated rule as the key, and the list of violating
+        route_ids as the values
+    """
+    violations = defaultdict(list)
+    rule_text = 'COUNTY_ORDER does not start at \'01\' and/or increment by a value of 1'
+
+    # Make a copy of the Feature Layer to avoid nesting arcpy.da.SearchCursors. Since this function can be invoked
+    #  multiple times in a second, check for the existence of the copy and delete if necessary
+    copy_layer_name = 'copy_layer_{}'.format(int(time.time()))
+    if arcpy.Exists(copy_layer_name):
+        arcpy.Delete_management(copy_layer_name)
+    copy_layer = arcpy.MakeFeatureLayer_management(
+        version_milepoint_layer,
+        copy_layer_name
+    )
+
+    # Examine all DOT_IDs of the edited route that are still active
+    where_clause = 'DOT_ID = \'{dot_id}\' AND ({active_routes})'.format(
+        dot_id=dot_id,
+        active_routes=active_routes_where_clause
+    )
+
+    county_orders = defaultdict(list)
+    relevant_fields = ['ROUTE_ID', 'COUNTY_ORDER', 'DIRECTION']
+    with arcpy.da.SearchCursor(copy_layer, relevant_fields, where_clause=where_clause) as cursor:
+        for row in cursor:
+            # Store the data using the COUNTY_ORDER as the dict key, and a list of ROUTE_ID:DIRECTION for each
+            #  route with the current DOT_ID
+            route_id, county_order, direction = row
+            county_orders[int(county_order)].append(
+                str(route_id) + ':' + str(direction)
+            )
+
+    # Since multiple ROUTE_IDs for a COUNTY_ORDER is valid (with certain direction code combinations), we need to
+    #  test that the direction codes are valid
+    for county_order, route_id_direction in county_orders.items():
+        # Length of one means there is only one ROUTE_ID for this COUNTY_ORDER, so add it to the dict witout :DIRECTION
+        if len(route_id_direction) <= 1:
+            county_orders[county_order] = [route_id_direction[0].split(':')[0]]
+        else:
+            # If there is more than one ROUTE_ID for the DOT_ID/COUNTY_ORDER, there are two valid DIRECTION combos
+            #  which are:
+            #  0 - Prim. Undivided w Inventory AND 3 - Not in RIS
+            #  1 - Prim Divided w Inventory AND 2 - Rev Divided w Inventory
+            direction_codes = [route_id_direction_str.split(':')[1] for route_id_direction_str in route_id_direction]
+            if '0' in direction_codes:
+                valid_direction_codes = ['0', '3']
+            elif '1' in direction_codes:
+                valid_direction_codes = ['1', '2']
+            if all(valid_dir in direction_codes for valid_dir in valid_direction_codes):
+                # The directions are valid, so just store one ROUTE_ID in the list for this COUNTY_ORDER. This makes
+                #  the logic below simpler, since we can assume only one ROUTE_ID exists for each COUNTY_ORDER
+                county_orders[county_order] = [ route_id_direction[0].split(':')[0]]
+            else:
+                # The case where DIRECTION are not valid should be covered by the SQL validations TODO: Check this
+                pass
+
+    route_ids = [route_id for all_route_ids in county_orders.values() for route_id in all_route_ids]
+    if county_orders.keys() == range(1, len(route_ids)+1):
+        # The county orders increment correctly, so pass to function return
+        pass
+    else:
+        if len(county_orders.keys()) == 1:
+            # There is only one COUNTY_ORDER, and it was not 0. Store the violation
+            for route_id_dirs in county_orders.values():
+                violation_route_ids = [route_id.split(':')[0] for route_id in route_id_dirs]
+                violations[rule_text] = violation_route_ids
+        else:
+            # There are numerous county orders. Test that element 1 - element 0 ==1
+            #  For example, ['01', '03'][1] - ['01', '03'][0] != 1
+            for county_order_a, county_order_b in zip(county_orders.keys()[:-1], county_orders.keys()[1:]):
+                difference = county_order_a - county_order_b
+                if difference == 1:
+                    continue
+                else:
+                    # If not equal to 1, write a violation
+                    violations[rule_text].append(*county_orders[county_order_b])
+
+    # Make sure ROUTE_IDs are unique if they exist
+    if violations:
+        violations[rule_text] = list(set(violations[rule_text]))
+
+    return violations
+
 
 def validate_by_roadway_type(roadway_type, attributes):
     """

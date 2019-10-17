@@ -108,8 +108,8 @@ class NYSDOTValidationsMixin(object):
             reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_ad.sde'
         elif arcpy.Exists(r'Database Connections\dev_elrs_DataReviewer_ad.sde'):
             reviewer_ws_param.value = r'Database Connections\dev_elrs_DataReviewer_ad.sde'
-        elif arcpy.Exists(r'Database Connections\dev_elrs_Datareviewer_ad.sde'):
-            reviewer_ws_param.value = r'Database Connections\dev_elrs_Datareviewer_ad.sde'
+        elif arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_dr_user.sde'):
+            reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_dr_user.sde'
         else:
             pass
 
