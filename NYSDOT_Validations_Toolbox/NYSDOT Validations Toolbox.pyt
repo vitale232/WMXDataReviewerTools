@@ -451,6 +451,19 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             'ExecuteAllValidations.execute(): Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
             level='info', logger=logger, arcpy_messages=messages)
 
+        validations.run_roadway_level_attribute_checks(
+            reviewer_ws,
+            production_ws,
+            job__id,
+            job__started_date,
+            job__owned_by,
+            version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
+            full_db_flag=full_db_flag,
+            logger=logger,
+            messages=messages
+        )
+
         validations.run_batch_on_buffered_edits(
             reviewer_ws,
             batch_job_file,
@@ -471,19 +484,6 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
-            logger=logger,
-            messages=messages
-        )
-
-        validations.run_roadway_level_attribute_checks(
-            reviewer_ws,
-            production_ws,
-            job__id,
-            job__started_date,
-            job__owned_by,
-            version_milepoint_layer=version_milepoint_layer,
-            milepoint_fc=milepoint_fc,
-            full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
         )
