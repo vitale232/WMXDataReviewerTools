@@ -144,7 +144,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         #  the session name from the DR tables
         reviewer_session = utils.get_reviewer_session_name(
             reviewer_ws,
-            user,
+            job__owned_by,
             job__id,
             logger=logger,
             arcpy_messages=messages
@@ -326,7 +326,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
             reviewer_session_name = utils.get_reviewer_session_name(
                 reviewer_ws,
-                user,
+                job__owned_by,
                 job__id,
                 logger=logger,
                 arcpy_messages=messages
@@ -543,7 +543,6 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
                         arcpy_messages=messages
                     )
                     for violation_desc__rid in county_order_results.items():
-                        utils.log_it('attributes: {}'.format(attributes), level='warn', logger=logger, arcpy_messages=messages)
                         violations[violation_desc__rid[0]].extend(violation_desc__rid[1])
 
         if len(violations) == 0:
@@ -553,7 +552,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
 
         session_name = utils.get_reviewer_session_name(
             reviewer_ws,
-            user,
+            job__owned_by,
             job__id,
             logger=logger,
             arcpy_messages=messages
