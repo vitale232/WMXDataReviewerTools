@@ -118,6 +118,8 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                 utils.log_it(('0 features were identified as edited since {}. '.format(job__started_date) +
                     'Exiting without running validations!'),
                     level='warn', logger=logger, arcpy_messages=messages)
+                utils.log_it('trying to clear db locks', level='warn', logger=logger, arcpy_messages=messages)
+                del version_milepoint_layer
                 return False
 
             utils.log_it('{count} features selected'.format(count=feature_count),
