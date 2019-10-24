@@ -186,6 +186,11 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
             messages=messages
         )
 
+        arcpy.ClearWorkspaceCache_management()
+
+        utils.log_it('#'*4 + ' SQL validations completed without error! ' + '#'*4,
+            level='info', logger=logger, arcpy_messages=messages)
+
         return True
 
 
@@ -269,6 +274,11 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
             logger=logger,
             messages=messages
         )
+
+        arcpy.ClearWorkspaceCache_management()
+
+        utils.log_it('#'*4 + ' Roadway level validations completed without error! ' + '#'*4,
+            level='info', logger=logger, arcpy_messages=messages)
 
         return True
 
@@ -355,6 +365,11 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             logger=logger,
             messages=messages
         )
+
+        arcpy.ClearWorkspaceCache_management()
+
+        utils.log_it('#'*4 + ' Reviewer Batch Job completed without error! ' + '#'*4,
+            level='info', logger=logger, arcpy_messages=messages)
 
         return True
 
@@ -487,6 +502,8 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             logger=logger,
             messages=messages
         )
+
+        arcpy.ClearWorkspaceCache_management()
 
         utils.log_it('#'*4 + ' All validations have completed without error! ' + '#'*4,
             level='info', logger=logger, arcpy_messages=messages)
