@@ -167,6 +167,8 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         try:
             # Try to cleanup the runtime environment
             arcpy.CheckInExtension('datareviewer')
+            utils.log_it('deleting version_select_milepoint_layer', level='warn', logger=logger, arcpy_messages=messages)
+            del version_select_milepoint_layer
             arcpy.env.workspace = r'in_memory'
             fcs = arcpy.ListFeatureClasses()
             utils.log_it('in_memory fcs: {}'.format(fcs), level='debug', logger=logger, arcpy_messages=messages)
