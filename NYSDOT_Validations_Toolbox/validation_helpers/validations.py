@@ -119,7 +119,6 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                     'Exiting without running validations!'),
                     level='warn', logger=logger, arcpy_messages=messages)
                 utils.log_it('trying to clear db locks', level='warn', logger=logger, arcpy_messages=messages)
-                del version_milepoint_layer
                 return False
 
             utils.log_it('{count} features selected'.format(count=feature_count),
@@ -169,7 +168,6 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         try:
             # Try to cleanup the runtime environment
             arcpy.CheckInExtension('datareviewer')
-            utils.log_it('deleting version_select_milepoint_layer', level='warn', logger=logger, arcpy_messages=messages)
             arcpy.Delete_management(version_select_milepoint_layer)
             arcpy.env.workspace = r'in_memory'
             fcs = arcpy.ListFeatureClasses()

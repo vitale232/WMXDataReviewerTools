@@ -288,6 +288,8 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
             full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
@@ -398,6 +400,7 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             job__started_date,
             job__owned_by,
             version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
             full_db_flag=full_db_flag,
             logger=logger,
             messages=messages
