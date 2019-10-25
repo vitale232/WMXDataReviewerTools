@@ -118,7 +118,6 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                 utils.log_it(('0 features were identified as edited since {}. '.format(job__started_date) +
                     'Exiting without running validations!'),
                     level='warn', logger=logger, arcpy_messages=messages)
-                utils.log_it('trying to clear db locks', level='warn', logger=logger, arcpy_messages=messages)
                 return False
 
             utils.log_it('{count} features selected'.format(count=feature_count),
@@ -169,6 +168,8 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             # Try to cleanup the runtime environment
             arcpy.CheckInExtension('datareviewer')
             arcpy.Delete_management(version_select_milepoint_layer)
+            utils.log_it(
+                'validations.run_batch_on_buffered_edits(): Deleted version_select_milpoint_layer')
             arcpy.env.workspace = r'in_memory'
             fcs = arcpy.ListFeatureClasses()
             utils.log_it('in_memory fcs: {}'.format(fcs), level='debug', logger=logger, arcpy_messages=messages)
@@ -298,7 +299,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         try:
             del connection
         except Exception:
-            utils.log_it('Could not delete the database connection!',
+            utils.log_it('validations.run_sql_validations(): Could not delete the database connection!',
                 level='warn', logger=logger, arcpy_messages=messages)
 
         # If the query succeeds but the response is empty, arcpy returns a python
@@ -580,6 +581,8 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         )
         try:
             arcpy.Delete_management(version_select_milepoint_layer)
+            utils.log_it(
+                'validations.run_roadway_level_attribute_checks(): Deleted version_select_milpoint_layer')
         except Exception as exc:
             utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
     except Exception as exc:
