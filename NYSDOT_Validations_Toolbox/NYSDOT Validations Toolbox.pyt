@@ -264,6 +264,24 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
 
+        user, production_ws_version = utils.get_user_and_version(
+            job__owned_by,
+            job__id,
+            production_ws,
+            logger=logger,
+            arcpy_messages=messages
+        )
+
+        milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
+            production_ws,
+            production_ws_version,
+        )
+
+        utils.log_it(
+            ('ExecuteRoadwayLevelAttributeValidations.execute(): ' +
+            'Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
+            level='info', logger=logger, arcpy_messages=messages)
+
         validations.run_roadway_level_attribute_checks(
             reviewer_ws,
             production_ws,
@@ -276,6 +294,7 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         )
 
         arcpy.ClearWorkspaceCache_management()
+        arcpy.Delete_management(version_milepoint_layer)
 
         utils.log_it('#'*4 + ' Roadway level validations completed without error! ' + '#'*4,
             level='info', logger=logger, arcpy_messages=messages)
@@ -367,9 +386,9 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             production_ws_version,
         )
 
-        utils.log_it((
-            'ExecuteAllValidations.execute(): Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
-            level='info', logger=logger, arcpy_messages=messages)
+        utils.log_it(
+            'ExecuteReviewerBatchJobOnEdits.execute(): Found milepoint_fc and created versioned layer: {}'.format(
+                milepoint_fc), level='info', logger=logger, arcpy_messages=messages)
 
         validations.run_batch_on_buffered_edits(
             reviewer_ws,
@@ -384,9 +403,8 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             messages=messages
         )
 
-        del version_milepoint_layer
-
         arcpy.ClearWorkspaceCache_management()
+        arcpy.Delete_management(version_milepoint_layer)
 
         utils.log_it('#'*4 + ' Reviewer Batch Job completed without error! ' + '#'*4,
             level='info', logger=logger, arcpy_messages=messages)
@@ -523,6 +541,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             messages=messages
         )
 
+        arcpy.Delete_management(version_milepoint_layer)
         arcpy.ClearWorkspaceCache_management()
 
         utils.log_it('#'*4 + ' All validations have completed without error! ' + '#'*4,

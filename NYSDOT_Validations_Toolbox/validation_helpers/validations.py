@@ -170,7 +170,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             # Try to cleanup the runtime environment
             arcpy.CheckInExtension('datareviewer')
             utils.log_it('deleting version_select_milepoint_layer', level='warn', logger=logger, arcpy_messages=messages)
-            del version_select_milepoint_layer
+            arcpy.Delete_management(version_select_milepoint_layer)
             arcpy.env.workspace = r'in_memory'
             fcs = arcpy.ListFeatureClasses()
             utils.log_it('in_memory fcs: {}'.format(fcs), level='debug', logger=logger, arcpy_messages=messages)
@@ -181,7 +181,8 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                         level='debug', logger=logger, arcpy_messages=messages)
                 except:
                     pass
-        except:
+        except Exception as exc:
+            utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
             pass
 
         utils.log_it('GP Tool success at: {}'.format(datetime.datetime.now()),
@@ -295,6 +296,12 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
         unique_co_dir_result = connection.execute(unique_co_dir_sql)
+
+        try:
+            del connection
+        except Exception:
+            utils.log_it('Could not delete the database connection!',
+                level='warn', logger=logger, arcpy_messages=messages)
 
         # If the query succeeds but the response is empty, arcpy returns a python
         #  boolean type with a True value. Convert booleans to an empty list to
@@ -573,6 +580,10 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             logger=logger,
             arcpy_messages=messages
         )
+        try:
+            arcpy.Delete_management(version_select_milepoint_layer)
+        except Exception as exc:
+            utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
     except Exception as exc:
         utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
         raise exc
