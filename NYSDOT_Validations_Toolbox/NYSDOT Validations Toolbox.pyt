@@ -176,17 +176,38 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
 
+        user, production_ws_version = utils.get_user_and_version(
+            job__owned_by,
+            job__id,
+            production_ws,
+            logger=logger,
+            arcpy_messages=messages
+        )
+
+        milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
+            production_ws,
+            production_ws_version,
+        )
+
+        utils.log_it(
+            ('ExecuteNetworkSQLValidations.execute(): ' +
+            'Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
+            level='info', logger=logger, arcpy_messages=messages)
+
         validations.run_sql_validations(
             reviewer_ws,
             production_ws,
             job__id,
             job__started_date,
             job__owned_by,
+            version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
             logger=logger,
             messages=messages
         )
 
         arcpy.ClearWorkspaceCache_management()
+        arcpy.Delete_management(version_milepoint_layer)
 
         utils.log_it('#'*4 + ' SQL validations completed without error! ' + '#'*4,
             level='info', logger=logger, arcpy_messages=messages)
@@ -540,6 +561,8 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
             logger=logger,
             messages=messages
         )
