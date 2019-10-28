@@ -297,7 +297,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         unique_co_dir_result = connection.execute(unique_co_dir_sql)
 
         try:
-            del connection
+            arcpy.Delete_management(connection)
         except Exception:
             utils.log_it('validations.run_sql_validations(): Could not delete the database connection!',
                 level='warn', logger=logger, arcpy_messages=messages)
@@ -343,7 +343,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
             )
 
             if len(unique_rdwy_attrs_result) > 0:
-                unique_rdwy_attrs_check_title = 'ROUTE_ID with improper roadway attrs across DOT_ID'
+                unique_rdwy_attrs_check_title = 'ROUTE_ID with improper roadway-level attributes across DOT_ID'
 
                 write.rdwy_attrs_sql_result_to_reviewer_table(
                     unique_rdwy_attrs_result,
