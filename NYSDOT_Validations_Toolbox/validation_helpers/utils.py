@@ -266,7 +266,7 @@ def get_reviewer_session_name(reviewer_ws, job__owned_by, job_id, logger=None, a
             user=job__owned_by,
             job_id=job_id
         )
-        log_it('Trying reviewer where_clause: {}'.format(job__owned_by),
+        log_it('Trying reviewer where_clause: {}'.format(reviewer_where_clause),
             level='debug', logger=logger, arcpy_messages=arcpy_messages)
 
         session_id = query_reviewer_table(

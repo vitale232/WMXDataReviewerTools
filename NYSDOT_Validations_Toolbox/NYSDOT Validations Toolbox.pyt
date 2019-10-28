@@ -540,6 +540,8 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            version_milepoint_layer=version_milepoint_layer,
+            milepoint_fc=milepoint_fc,
             logger=logger,
             messages=messages
         )

@@ -167,18 +167,17 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         try:
             # Try to cleanup the runtime environment
             arcpy.CheckInExtension('datareviewer')
-            arcpy.Delete_management(version_select_milepoint_layer)
-            utils.log_it(
-                'validations.run_batch_on_buffered_edits(): Deleted version_select_milpoint_layer')
             arcpy.env.workspace = r'in_memory'
             fcs = arcpy.ListFeatureClasses()
             utils.log_it('in_memory fcs: {}'.format(fcs), level='debug', logger=logger, arcpy_messages=messages)
             for in_memory_fc in fcs:
                 try:
                     arcpy.Delete_management(in_memory_fc)
-                    utils.log_it(' deleted: {}'.format(in_memory_fc),
+                    utils.log_it(' Deleted: {}'.format(in_memory_fc),
                         level='debug', logger=logger, arcpy_messages=messages)
                 except:
+                    utils.log_it(' Could not delete: {}'.format(in_memory_fc),
+                        level='debug', logger=logger, arcpy_messages=messages)
                     pass
         except Exception as exc:
             utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
@@ -186,14 +185,19 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
 
         utils.log_it('GP Tool success at: {}'.format(datetime.datetime.now()),
             level='info', logger=logger, arcpy_messages=messages)
-        return True
 
     except Exception as exc:
         utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
         raise exc
+    
+    # Return True on function success
+    else:
+        return True
 
 def run_sql_validations(reviewer_ws, production_ws, job__id,
                         job__started_date, job__owned_by,
+                        version_milepoint_layer=None,
+                        milepoint_fc=None,
                         logger=None, messages=None):
     """
     This tool executes two SQL queries against the SDE versioned view of the LRSN_Milepoint table.
@@ -289,18 +293,23 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         connection = arcpy.ArcSDESQLExecute(production_ws)
         # Change the SDE versioned view to the Workflow Manager version
-        connection.execute('EXEC ELRS.sde.set_current_version \'{version_name}\';'.format(
+        change_versioned_view_sql = 'EXEC ELRS.sde.set_current_version \'{version_name}\';'.format(
             version_name=production_ws_version
-        ))
+        )
+        utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=change_versioned_view_sql),
+            level='debug', logger=logger, arcpy_messages=messages)
+        connection.execute(change_versioned_view_sql)
 
         unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
-        unique_co_dir_result = connection.execute(unique_co_dir_sql)
+        utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=unique_rdwy_attrs_sql),
+            level='debug', logger=logger, arcpy_messages=messages)
 
-        try:
-            arcpy.Delete_management(connection)
-        except Exception:
-            utils.log_it('validations.run_sql_validations(): Could not delete the database connection!',
-                level='warn', logger=logger, arcpy_messages=messages)
+        unique_co_dir_result = connection.execute(unique_co_dir_sql)
+        utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=unique_co_dir_sql),
+            level='debug', logger=logger, arcpy_messages=messages)
+
+        # Try changing the connection/versioned view back to Lockroot to release locks on the edit version for WMX
+        connection.execute('EXEC ELRS.sde.set_current_version "ELRS.Lockroot";')
 
         # If the query succeeds but the response is empty, arcpy returns a python
         #  boolean type with a True value. Convert booleans to an empty list to
@@ -312,27 +321,27 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         if len(unique_rdwy_attrs_result) > 0 or len(unique_co_dir_result) > 0:
             # Create a versioned arcpy feature layer of the Milepoint feature class
-            milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
-            if len(milepoint_fcs) == 1:
-                milepoint_fc = milepoint_fcs[0]
-            else:
-                raise ValueError(
-                    'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
-                    'Selected FCs: {}'.format(milepoint_fcs)
+            if not milepoint_fc:
+                milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
+                if len(milepoint_fcs) == 1:
+                    milepoint_fc = milepoint_fcs[0]
+                else:
+                    raise ValueError(
+                        'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
+                        'Selected FCs: {}'.format(milepoint_fcs)
+                    )
+
+            if not version_milepoint_layer:
+                # Select the milepoint LRS feature class from the workspace if not passed into function
+                utils.log_it('Creating versioned view of {}'.format(milepoint_fc),
+                    level='debug', logger=logger, arcpy_messages=messages)
+
+                milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
+                    production_ws,
+                    production_ws_version
                 )
-
-            utils.log_it('Creating versioned view of {}'.format(milepoint_fc),
-                level='debug', logger=logger, arcpy_messages=messages)
-
-            sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
-                milepoint_fc,
-                'milepoint_layer_{}'.format(int(time.time()))
-            )
-            version_milepoint_layer = arcpy.ChangeVersion_management(
-                sde_milepoint_layer,
-                'TRANSACTIONAL',
-                version_name=production_ws_version
-            )
+                utils.log_it('version_milepoint_layer created... This could lead to a WMX Version lock! : {}'.format(
+                    version_milepoint_layer), level='warn', logger=logger, arcpy_messages=messages)
 
             reviewer_session_name = utils.get_reviewer_session_name(
                 reviewer_ws,
@@ -376,24 +385,37 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         try:
             # Try to cleanup the runtime environment
             arcpy.CheckInExtension('datareviewer')
+            try:
+                del connection
+            except Exception:
+                utils.log_it('validations.run_sql_validations(): Could not delete the database connection!',
+                    level='warn', logger=logger, arcpy_messages=messages)
             arcpy.env.workspace = r'in_memory'
             fcs = arcpy.ListFeatureClasses()
             utils.log_it('in_memory fcs: {}'.format(fcs), level='debug', logger=logger, arcpy_messages=messages)
             for in_memory_fc in fcs:
                 try:
                     arcpy.Delete_management(in_memory_fc)
-                    utils.log_it(' deleted: {}'.format(in_memory_fc),
+                    utils.log_it(' Deleted: {}'.format(in_memory_fc),
                         level='debug', logger=logger, arcpy_messages=messages)
                 except:
+                    utils.log_it(' Could not delete: {}'.format(in_memory_fc),
+                        level='debug', logger=logger, arcpy_messages=messages)
                     pass
-        except:
+        except Exception as exc:
+            utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
             pass
+
+        utils.log_it('GP Tool success at: {}'.format(datetime.datetime.now()),
+            level='info', logger=logger, arcpy_messages=messages)
 
     except Exception as exc:
         utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
         raise exc
 
-    return True
+    # Return True on function success
+    else:
+        return True
 
 def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
                                        job__started_date, job__owned_by,
@@ -580,16 +602,34 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             arcpy_messages=messages
         )
         try:
-            arcpy.Delete_management(version_select_milepoint_layer)
-            utils.log_it(
-                'validations.run_roadway_level_attribute_checks(): Deleted version_select_milpoint_layer')
+            # Try to cleanup the runtime environment
+            arcpy.CheckInExtension('datareviewer')
+            arcpy.env.workspace = r'in_memory'
+            fcs = arcpy.ListFeatureClasses()
+            utils.log_it('in_memory fcs: {}'.format(fcs), level='debug', logger=logger, arcpy_messages=messages)
+            for in_memory_fc in fcs:
+                try:
+                    arcpy.Delete_management(in_memory_fc)
+                    utils.log_it(' Deleted: {}'.format(in_memory_fc),
+                        level='debug', logger=logger, arcpy_messages=messages)
+                except:
+                    utils.log_it(' Could not delete: {}'.format(in_memory_fc),
+                        level='debug', logger=logger, arcpy_messages=messages)
+                    pass
         except Exception as exc:
             utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
+            pass
+
+        utils.log_it('GP Tool success at: {}'.format(datetime.datetime.now()),
+            level='info', logger=logger, arcpy_messages=messages)
+
     except Exception as exc:
         utils.log_it(traceback.format_exc(), level='error', logger=logger, arcpy_messages=messages)
         raise exc
 
-    return True
+    # Return True on function success
+    else:
+        return True
 
 def validate_county_order_value(dot_id_routes, dot_id, direction,
                                 active_routes_where_clause=ACTIVE_ROUTES_QUERY,
