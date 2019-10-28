@@ -27,13 +27,13 @@ In NYSDOT's current workflow, the Execute All Validations tool is called. You ca
 
 !Screenshot Placeholder!
 ## Ad-Hoc
-These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCatalog. It's important to understand the input parameters for the tool prior to execution, as they're designed to be pre-populated by Workflow Manager. Higher level documentation can be viewed in the tool help, but here's a more technical description:
+These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCatalog. It's important to understand the input parameters for the tool prior to execution, as they're designed to be pre-populated by Workflow Manager. Higher level documentation can be viewed in the tool help, but here's a brief description:
 
 | Parameter | Description |
 | ----------- | ----------- |
 | job__started_date | The Milepoint feature class will be filtered with EDITED_DATE >= job__started_date |
 | job__owned_by | The Milepoint feature class will be filtered with EDITED_BY = job__owned_by |
-| job__id | The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC\job__owned_by.upper()".HDS_GENERAL_EDITING_JOB_{job__id} |
+| job__id | The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC\job__owned_by.upper()".HDS_GENERAL_EDITING_JOB_{job__id}, where .upper() indicates all capital letters and job__id will correspond with the Workflow Manager Job ID |
 | production_ws | SDE file pointing to the R&H geodatabase |
 | reviewer_ws | SDE file or file geodatabase for the Data Reviewer results |
 | log_path | If a log file is desired, it must have a .txt extension |
