@@ -37,7 +37,7 @@ These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCata
 | production_ws | SDE file pointing to the R&H geodatabase |
 | reviewer_ws | SDE file or file geodatabase for the Data Reviewer results |
 | log_path | If a log file is desired, it must have a .txt extension |
-| log_level | DEBUG or INFO |
+| log_level | DEBUG or INFO - This also controls the Geoprocessing Tool's logging to the Arc Dialog |
 | batch_job_file | Path to a file with .rbj extension, which is a Reviewer Batch Job created in ArcMap |
 | full_db_flag | If True, the filtering described in the first two rows is disregarded and all active features are validated |
 
