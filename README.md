@@ -7,16 +7,16 @@ The WMXDataReviewerTools repository is the source code for the NYSDOT Validation
 The toolbox consists of four tools:
 !Screenshot Placeholder!
 
-### 1. Execute Reviewer Batch Job on R&H Edits
+#### 1. Execute Reviewer Batch Job on R&H Edits
 Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons.
 
-### 2. Execute Roadway Level Attribute Validations
+#### 2. Execute Roadway Level Attribute Validations
 Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include Local Roads should not have a `ROUTE_NUMBER`, `COUNTY_ORDER` should be a series of numbers incrementing by a value of one on a `DOT_ID`, the `ROUTE_SUFFIX` of a `ROADWAY_TYPE=Route` must be `None`, and many other validations. View the source code or the table below for a complete list.
 
-### 3. Execute SQL Validations Against Network
+#### 3. Execute SQL Validations Against Network
 These validations are executed against the entire LRSN_Milepoint table, validating only active routes. There are two SQL queries that are executed as apart of this validation tool, one of which ensures there is only one combination of roadway-level attributes, the other of which ensures there is not more than one combination of `DOT_ID, COUNTY_ORDER, and DIRECTION`.
 
-### 4. Execute All validations
+#### 4. Execute All validations
 This tool serves as a wrapper function for items 1 through 3 of these lists. It executes the tools in this order: Execute Roadway Level Attribute Validations, Execute Reviewer Batch Job on R&H Edits, and Execute SQL Validations Against Network. The flow of data in this tool assumes this execution order.
 
 # Execution
@@ -33,7 +33,7 @@ These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCata
 | ----------- | ----------- |
 | job__started_date | The Milepoint feature class will be filtered with EDITED_DATE >= job__started_date |
 | job__owned_by | The Milepoint feature class will be filtered with EDITED_BY = job__owned_by |
-| job__id | The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC\job__owned_by.upper()".HDS_GENERAL_EDITING_JOB_{job__id}, where .upper() indicates all capital letters and job__id will correspond with the Workflow Manager Job ID |
+| job__id | The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC\{job__owned_by.upper()}".HDS_GENERAL_EDITING_JOB_{job__id}, where .upper() indicates all capital letters and job__id will correspond with the Workflow Manager Job ID |
 | production_ws | SDE file pointing to the R&H geodatabase |
 | reviewer_ws | SDE file or file geodatabase for the Data Reviewer results |
 | log_path | If a log file is desired, it must have a .txt extension |
