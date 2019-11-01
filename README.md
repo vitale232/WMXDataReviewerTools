@@ -4,30 +4,32 @@ This repository contains ArcGIS geoprocessing tools and scripts to execute Esri 
 ## About the Tools
 The WMXDataReviewerTools repository is the source code for the NYSDOT Validations Toolbox, which executes various Data Reviewer jobs against the Milepoint LRS. The validations and the code within this repository make strong assumptions regarding the schema of the data, thus this toolbox is not expected to "just run" on other datasets. However, it should serve as a fine example of some methods used to employ Data Reviewer in a Workflow Manager Workflow.
 
-The toolbox consists of four tools: <br><br>
+The toolbox consists of four tools: <br>
 ![Expanded toolbox screenshot](./docs/img/expanded_toolbox.PNG?raw=true "NYSDOT Validations Toolbox")
 
 #### 1. Execute Reviewer Batch Job (RBJ) on R&H Edits
-Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This leads to the inclusion of routes that were not directly edited by the user in this given session in the RBJ execution.
+This tool elects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This georpocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job.
 
 ![RBJ Buffer Intersection figure](./docs/img/intersection_map.PNG?raw=true "RBJ Feature Selection Diagram")
-In the above figure, the yellow route was edited by the current user in the current WMX job. The red polygon represents the 10 meter buffer that is created while executing the Execute Reviewer Batch Job on R&H Tools from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram.
+In the above figure, the yellow route was edited by the current user in the current WMX job. The rose colored polygon represents the 10 meter buffer that is created while executing the `Execute Reviewer Batch Job on R&H Tool` from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram. The black routes will not be validated.
 
 #### 2. Execute Roadway Level Attribute Validations
-Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include Local Roads should not have a `ROUTE_NUMBER`, `COUNTY_ORDER` should be a series of numbers incrementing by a value of one on a `DOT_ID`, the `ROUTE_SUFFIX` of a `ROADWAY_TYPE=Route` must be `None`, and many other validations. View the source code or the table below for a complete list.
+This tool selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include "Local Roads should not have a `ROUTE_NUMBER`", "`COUNTY_ORDER` should be a series of numbers incrementing by a value of one on a `DOT_ID`", the "`ROUTE_SUFFIX` of a `ROADWAY_TYPE=Route` must be `None`", and many other validations. View the [source code](https://github.com/vitale232/WMXDataReviewerTools/blob/8609446d86f925b3509bd95330c7b780e7c4868f/NYSDOT_Validations_Toolbox/validation_helpers/validations.py#L420) or the [table below](#roadway-level-attribute-checks) for a complete list.
 
 #### 3. Execute SQL Validations Against Network
-These validations are executed against the entire LRSN_Milepoint table, validating only active routes. There are two SQL queries that are executed as apart of this validation tool, one of which ensures there is only one combination of roadway-level attributes, the other of which ensures there is not more than one combination of `DOT_ID, COUNTY_ORDER, and DIRECTION`.
+These validations are executed against the entire LRSN_Milepoint table, validating only active routes. There are two [SQL queries](#execute-sql-validations) that are executed as apart of this validation tool, one of which ensures there is only one combination of roadway-level attributes, the other of which ensures there is not more than one combination of `DOT_ID, COUNTY_ORDER, and DIRECTION`.
 
 #### 4. Execute All validations
-This tool serves as a wrapper function for items 1 through 3 of these lists. It executes the tools in this order: Execute Roadway Level Attribute Validations, Execute Reviewer Batch Job on R&H Edits, and Execute SQL Validations Against Network. The flow of data in this tool assumes this execution order.
+This tool serves as a wrapper function for items 1 through 3 of these lists. The data flow of this tool requires the tools to be executed in the following order:
+1. Execute Roadway Level Attribute Validations
+2. Execute Reviewer Batch Job on R&H Edits
+3. Execute SQL Validations Against Network.
 
 # Execution
 ## Workflow Manager
-This toolbox is mainly designed to run within a Workflow Manager 
-The typical workflow will create a unique version for the user, create a corresponding Reviewer Workspace, launch ArcMap with the proper version and workspace so that the user can conduct their edits, launch this Python Toolbox as a geoprocessing tool, launch ArcMap again so the user can see the results of the validations, and finally close the version and the Workflow Manager job.
+This toolbox is mainly designed to run within a Workflow Manager Workflow, which is called when a Workflow Manager Job is created by the user. The typical workflow will create a unique version for the user, create a corresponding Reviewer Workspace, launch ArcMap with the proper version and workspace so that the user can conduct their edits, launch this Python Toolbox as a geoprocessing tool, launch ArcMap again so the user can see the results of the validations, and finally close the version and the Workflow Manager job.
 
-In NYSDOT's current workflow, the Execute All Validations tool is called. You can see the schematics of the workflow below:
+In NYSDOT's current development workflow, the Execute All Validations tool is called. You can see the schematics of the workflow below:
 
 ![Workflow Manager Workflow screenshot](./docs/img/workflow_diagram.PNG?raw=true "Esri Workflow Manager (WMX) Workflow")
 
@@ -47,21 +49,27 @@ These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCata
 | batch_job_file | Path to a file with .rbj extension, which is a Reviewer Batch Job created in ArcMap |
 | full_db_flag | If True, the filtering described in the first two rows is disregarded and all active features are validated |
 
+As an example, let's say the user `SVC\jdoe` has created a new Workflow Manager General Editing Job and conducted some Roads and Highways edits within the new version. The job was created on `11/1/2019` and assigned the system generated ID `30063`. J. Doe would like to validate those edits by running `Execute All Validations`. They would populate the tool's UI as follows:
+
+![Execute All Validations UI Screenshot](./docs/img/tool_screeshot.PNG?raw=true "Execute All Validations UI")
+
 # Validations
 ## Reviewer Batch Job
-A [Reviewer Batch Job](https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm) is created using ArcGIS Desktop. Esri provides pre-programmed routines that search for hard-to-see errors in your data. Common examples are "dangles" (i.e. polylines that almost connect and probably were intended to connect) and "cutbacks" (i.e. the digitizer accidentally put a z shape into the polyline vertices).
+A [Reviewer Batch Job](https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm) is created using ArcGIS Desktop. Esri provides pre-programmed routines that search for hard-to-see errors in your data. Common examples are ["dangles"](https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/finding-dangles-on-line-features.htm) (i.e. polylines that almost connect and probably were intended to connect) and ["cutbacks"](https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/checking-cutbacks-in-lines-and-polygons.htm) (i.e. the digitizer accidentally put a z shape into the polyline vertices).
 
-The Reviewer Batch Job portion of the WMXDataReviewer Tools is the most malleable part of the validation workflow. Any user can go into ArcMap, load the correct data, and generate an RBJ to their specifications. The RBJ can then be fed into the tools via Workflow Manager or ad-hoc execution. Additionally, these tools are not required to run RBJ validations. However, Data Reviewer's Workflow Manager integration provides limited options for which features are input into an RBJ. Since running the RBJ on the entire LRS network is time consuming and overwhelms the user with results, this toolbox helps by selecting only the users edits. When the edits are buffered, the buffer polygon can be fed into the Data Reviewer Execute Reviewer Batch Job GP tool, which will select all intersecting features.
+The Reviewer Batch Job portion of the WMXDataReviewer Tools is the most malleable/easily-extensible part of the validation workflow. Any user can go into ArcMap, load the correct data, and generate an RBJ to their specifications. The RBJ can then be fed into the tools via Workflow Manager or ad-hoc execution. Additionally, these tools are not required to run RBJ validations. However, Data Reviewer's Workflow Manager integration provides limited options for which features are input into an RBJ. Since running the RBJ on the entire LRS network is time consuming and overwhelms the user with results, this toolbox helps by selecting only the user's edits. When the edits are buffered, the buffer polygon can be fed into the Data Reviewer Execute Reviewer Batch Job GP tool, which will select all intersecting features.
 
 Here is a list of the checks that are currently included in the [RBJ](https://github.com/vitale232/WMXDataReviewerTools/blob/master/Reviewer_Batch_Jobs/RoutesInternalEventsValidations.rbj):
 
 ### Centerline Checks
-| Check Title             | DR Check Type           | Where Clause              | Additional Parameters |
-|-------------------------|-------------------------|---------------------------|-----------------------|
-| Multipart Feature       | Multipart Feature       |                           |                       |
-| Duplicate Vertices      | Duplicate Vertices      |                           | Tolerance: 0\.0011 meters |
-| Overlapping Centerlines | Overlapping Centerlines |                           | FC1: Centerlines <br> FC2: Centerlines <br> Type: Overlap <br> Attributes: None |
-| Invalid Geometry        | Invalid Geometry        |                           |                       |
+| Check Title                         | DR Check Type           | Where Clause                                                                     | Additional Parameters |
+|-------------------------------------|-------------------------|----------------------------------------------------------------------------------|-----------------------|
+| Multipart Feature                   | Multipart Feature       |
+| Duplicate Vertices                  | Duplicate Vertices      | | Tolerance: 0\.0011 meters                                                        |
+| Overlapping Centerlines \- Overlaps | Overlapping Centerlines | | FC1: Centerlines <br> FC2: Centerlines <br> Type: Overlap <br> Attributes: None  |
+| Overlapping Centerlines \- Contains | Overlapping Centerlines | | FC1: Centerlines <br> FC2: Centerlines <br> Type: Contains <br> Attributes: None |
+| Invalid Geometry                    | Invalid Geometry        |
+
 
 ### Calibration Point Checks
 | Check Title        | DR Check Type    | Where Clause                                                                                                                | Additional Parameters |
@@ -91,8 +99,8 @@ Here is a list of the checks that are currently included in the [RBJ](https://gi
 | Invalid MEASURE\_RANGE      | Execute SQL                           | SHAPE\.STStartPoint\(\)\.M > SHAPE\.STEndPoint\(\)\.M                                                                       |
 | Invalid TO\_MEASURE         | Execute SQL                           | SHAPE\.STEndPoint\(\)\.M IS NULL OR ISNUMERIC\(SHAPE\.STEndPoint\(\)\.M\) <> 1                                              |
 | Too Many Vertices           | Execute SQL                           | SHAPE\.STNumPoints\(\) > 1500                                                                                               |
-| Local Road Overlap          | Geometry on Geometry                  | ROADWAY\_TYPE = 1 AND TO\_DATE IS NULL                                                                                      | where\_clause: Same on both FCs <br> FC1: Milepoint <br> FC2: Milepoint <br> Spatial Relation Check type: Overlaps <br> Compare Attributes: CONC\_HIERARCHY=CONC\_HIERARCHY |
-| Route Not on Centerline     | Geometry on Geometry                  | \(FROM\_DATE IS NULL OR FROM\_DATE <= CURRENT\_TIMESTAMP\) AND \(TO\_DATE IS NULL OR TO\_DATE >= CURRENT\_TIMESTAMP\)       | where\_clause: FC1 blank <br> FC1: Centerlines <br> FC2: Milepoint <br> Spatial Relation Check Type: Within <br> Attributes: None                                           |
+| Local Road Overlap - Overlaps          | Geometry on Geometry                  | ROADWAY\_TYPE = 1 AND  (\(FROM\_DATE IS NULL\) OR \(FROM\_DATE < '01/01/2007'\) OR \(FROM\_DATE > TO\_DATE\) OR \(FROM\_DATE > CURRENT\_TIMESTAMP\))                                                                                    | where\_clause: Same on both FCs <br> FC1: Milepoint <br> FC2: Milepoint <br> Spatial Relation Check type: Overlaps <br> Compare Attributes: None|
+| Local Road Overlap - Contains          | Geometry on Geometry                  | ROADWAY\_TYPE = 1 AND (\(FROM\_DATE IS NULL\) OR \(FROM\_DATE < '01/01/2007'\) OR \(FROM\_DATE > TO\_DATE\) OR \(FROM\_DATE > CURRENT\_TIMESTAMP\))                                                                                   | where\_clause: Same on both FCs <br> FC1: Milepoint <br> FC2: Milepoint <br> Spatial Relation Check type: Contains <br> Compare Attributes: None|
 
 ### Invalid Internal Event Checks
 | Check Title                     | DR Check Type | Where Clause                                                                                                               | Additional Parameters                                                                                                                          |
@@ -101,15 +109,15 @@ Here is a list of the checks that are currently included in the [RBJ](https://gi
 | Municipality                    | Event Check   | \(FROM\_DATE IS NULL OR FROM\_DATE <= CURRENT\_TIMESTAMP\) AND <br> \(TO\_DATE IS NULL OR TO\_DATE >= CURRENT\_TIMESTAMP\) | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
 | Maintenance Jurisdiction        | Event Check   | \(FROM\_DATE IS NULL OR FROM\_DATE <= CURRENT\_TIMESTAMP\) AND <br> \(TO\_DATE IS NULL OR TO\_DATE >= CURRENT\_TIMESTAMP\) | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
 | Owning Jurisdiction             | Event Check   | \(FROM\_DATE IS NULL OR FROM\_DATE <= CURRENT\_TIMESTAMP\) AND <br> \(TO\_DATE IS NULL OR TO\_DATE >= CURRENT\_TIMESTAMP\) | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
-| Number of Through Lanes Reverse | Event Check   | \(TO\_DATE IS NULL\) AND \(DIRECTION = '0' OR DIRECTION = '2'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
-| Number of Through Lanes Primary | Event Check   | \(TO\_DATE IS NULL\) AND \(DIRECTION = '0' OR DIRECTION = '1'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
-| Width of Through Lanes Reverse  | Event Check   | \(TO\_DATE IS NULL\) AND \(DIRECTION = '0' OR DIRECTION = '2'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
-| Width of Through Lanes Primary  | Event Check   | \(TO\_DATE IS NULL\) AND \(DIRECTION = '0' OR DIRECTION = '1'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
+| Number of Through Lanes Reverse | Event Check   | \(\(FROM\_DATE IS NULL\) OR \(FROM\_DATE < '01/01/2007'\) OR \(FROM\_DATE > TO\_DATE\) OR \(FROM\_DATE > CURRENT\_TIMESTAMP\)) AND \(DIRECTION = '0' OR DIRECTION = '2'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
+| Number of Through Lanes Primary | Event Check   | \(\(FROM\_DATE IS NULL\) OR \(FROM\_DATE < '01/01/2007'\) OR \(FROM\_DATE > TO\_DATE\) OR \(FROM\_DATE > CURRENT\_TIMESTAMP\)) AND \(DIRECTION = '0' OR DIRECTION = '1'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
+| Width of Through Lanes Reverse  | Event Check   | \(\(FROM\_DATE IS NULL\) OR \(FROM\_DATE < '01/01/2007'\) OR \(FROM\_DATE > TO\_DATE\) OR \(FROM\_DATE > CURRENT\_TIMESTAMP\)) AND \(DIRECTION = '0' OR DIRECTION = '2'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
+| Width of Through Lanes Primary  | Event Check   | \(\(FROM\_DATE IS NULL\) OR \(FROM\_DATE < '01/01/2007'\) OR \(FROM\_DATE > TO\_DATE\) OR \(FROM\_DATE > CURRENT\_TIMESTAMP\)) AND \(DIRECTION = '0' OR DIRECTION = '1'\)                                                            | where\_clause: On event and Milepoint <br> Search Goals: Find orphans/Find overlaps/Find Gaps <br> Measure tolerance: 0\.000000621369949494949 |
 
 ## Roadway Level Attribute Checks
-Roads and Highways provides dialog boxes for users to input roadway attributes. Many of these attributes are partially limited by the use of [Esri Attribute Domains](https://desktop.arcgis.com/en/arcmap/10.5/manage-data/geodatabases/an-overview-of-attribute-domains.htm). Domains do a good job of making sure the values lie within a specific set, however, they do not limit attributes based on the values of other attributes. Many of the fields in the LRSN_Milepoint table only apply to signed routes, which are indicated by `ROADWAY_TYPE=Route`. Other fields are assumed to be null when the `ROADWAY_TYPE=Road`.
+Roads and Highways provides dialog boxes for users to input roadway attributes. Many of these attributes are partially limited by the use of [Esri Attribute Domains](https://desktop.arcgis.com/en/arcmap/10.5/manage-data/geodatabases/an-overview-of-attribute-domains.htm). Domains do a good job of making sure the values lie within a specific set, however, they do not limit attributes based on the values of other attributes. Many of the fields in the LRSN_Milepoint table only apply to signed routes, which are indicated by `ROADWAY_TYPE=Route`. Other fields are assumed to be null when the `ROADWAY_TYPE=Road`. Further, some fields like `ROUTE_ID` and `DOT_ID` allow for freehand input, saving the input as string values to the database. These fields should be numeric in nature, so any alphabetical characters are invalid. Domains cannot account for this.
 
-The Roadway Level Attribute checks are managed in a Python function. The relevant features are read from the LRSN_Milepoint table using `arcpy.da.SearchCursor`, and the attributes and ROADWAY_TYPE are passed into the function. The function checks for the following relationships:
+The Roadway Level Attribute checks are managed in a [Python function](https://github.com/vitale232/WMXDataReviewerTools/blob/8609446d86f925b3509bd95330c7b780e7c4868f/NYSDOT_Validations_Toolbox/validation_helpers/validations.py#L420). The relevant features are read from the LRSN_Milepoint table using `arcpy.da.SearchCursor`, and the attributes and ROADWAY_TYPE are passed into the function. The function checks for the following relationships:
 
 | Validation                                                    | Roadway Type                        |
 |---------------------------------------------------------------|-------------------------------------|
@@ -118,6 +126,9 @@ The Roadway Level Attribute checks are managed in a Python function. The relevan
 | COUNTY\_ORDER must be 2 digit zero padded                     | Road, Ramp, Route, or Non\-Mainline |
 | COUNTY\_ORDER must be greater than 00                         | Road, Ramp, Route, or Non\-Mainline |
 | COUNTY\_ORDER should be less than 29                          | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER must increment by a value of 1 for this DOT\_ID | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER must equal '01' for singular DOT\_ID            | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER has too many ROUTE\_IDs for this DOT\_ID        | Road, Ramp, Route, or Non\-Mainline |
 | SIGNING must be null                                          | Road or Ramp                        |
 | ROUTE\_NUMBER must be null                                    | Road or Ramp                        |
 | ROUTE\_SUFFIX must be null                                    | Road or Ramp                        |
@@ -133,16 +144,13 @@ The Roadway Level Attribute checks are managed in a Python function. The relevan
 | ROUTE\_QUALIFIER must be null                                 | Non\-Mainline                       |
 | PARKWAY\_FLAG must be 'No'                                    | Non\-Mainline                       |
 | ROADWAY\_FEATURE must not be null                             | Non\-Mainline                       |
-| COUNTY\_ORDER must increment by a value of 1 for this DOT\_ID | Road, Ramp, Route, or Non\-Mainline |
-| COUNTY\_ORDER must equal '01' for singular DOT\_ID            | Road, Ramp, Route, or Non\-Mainline |
-| COUNTY\_ORDER has too many ROUTE\_IDs for this DOT\_ID        | Road, Ramp, Route, or Non\-Mainline |
 
 ## Execute SQL Validations
-The SQL Validations check the full LRSN_Milepoint table for some essential relationships. While these validations are partially redundant, they provide the added benefit of always validating the entire active route network. This is extremely beneficial, as systems downstream of the R&H interface rely on sound data quality.
+The SQL Validations check the full LRSN_Milepoint table for some essential relationships. While these validations are partially redundant, they provide the added benefit of always validating the entire active route network. This is beneficial, as systems downstream of the R&H interface rely on sound data quality.
 
 These validations are always run against a "Versioned View" of the data. The Esri SDE schema provides this database view so that you can execute SQL against different trees of the data. The version that the versioned view references is set with a stored database procedure. For example, you can see the Lockroot version in the versioned view by executing this SQL: `EXEC ELRS.sde.set_current_version "ELRS.Lockroot";`.
 
-The first SQL function ensures that there is only one combination of roadway level attributes. This is essential since the LRSN is split at county borders. Thus, downstream routes can easily fall out of sync. It examines the attributes `SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, AND PARKWAY_FLAG`, while paying no mind to the DOT_ID, ROUTE_ID, and COUNTY_ORDER:
+The first SQL query ensures that there is only one combination of roadway level attributes. This is essential since the LRSN is split at county borders. Thus, downstream routes can easily fall out of sync. It examines the attributes `SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, AND PARKWAY_FLAG`, while paying no mind to the `DOT_ID, ROUTE_ID, and COUNTY_ORDER`:
 ```SQL
 SELECT DOT_ID, COUNT (DISTINCT CONCAT(SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG))
 FROM ELRS.elrs.LRSN_Milepoint_evw
@@ -162,6 +170,10 @@ HAVING COUNT (1)>1
 
 # Setup
 ## Workflow Manager Launch GP Tool Step Parameters
+This tool is intended to run via Workflow Manager (WMX). The easiest way to achieve this is to create a new WMX `Step Type` using the Workflow Manager Administrator. The `Step Type` can be one of `Launch Geoprocessing Tool` or `Execute Geoprocessing Tool`. The `Launch GP Tool` step will present the user with the GP tool's GUI prior to execution, while the `Execute GP Tool` step will immediately begin executing the tool, with no option to update parameters. NYSDOT currently uses the `Launch GP Tool` step type to allow for outputting an optional log file to disk and easier troubleshooting. When the `Launch GP Tool` step is configured as shown in the table below, the tool will have all of the necessary input parameters prepopulated with the appropriate information. The end user must simply click `OK`, and the tool will start to execute in the foreground.
+
+The tool requires that all users have an SDE file in the ArcCatalog Database Connections directory with a specific name for the `production_ws` parameter as well as the `reviewer_ws` parameter. These SDE files should point to the ALRS enterprise geodatabase and the Data Reviewer enterprise geodatabase, respectively.
+
 | Parameter | Value |
 | ----------- | ----------- |
 | job__started_date | [JOB:STARTED_DATE] |
@@ -175,6 +187,8 @@ HAVING COUNT (1)>1
 | full_db_flag |  |
 
 *The parameters of the form [JOB:FOOBAR] refer to [Workflow Manager Tokens](https://desktop.arcgis.com/en/arcmap/10.5/extensions/workflow-manager/tokens.htm)*
+
+Once the `Launch` or `Execute GP Tool` steps have been established, they can be dropped into a Workflow using Workflow Manager Administrator. The Workflow can then be assigned to a Job Type, which will allow users to create reproducible workflows on their own.
 
 ## Development Notes
 + With much of the code living in a Python package called validation_helpers, it's hard to get ArcGIS to consistently update the tool. Just open a blank map document with the Data Reviewer extension activated whenever you'd like to test code changes.
