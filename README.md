@@ -8,7 +8,7 @@ The toolbox consists of four tools: <br>
 ![Expanded toolbox screenshot](./docs/img/expanded_toolbox.PNG?raw=true "NYSDOT Validations Toolbox")
 
 #### 1. Execute Reviewer Batch Job (RBJ) on R&H Edits
-This tool elects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This georpocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job.
+This tool elects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This geoprocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job.
 
 ![RBJ Buffer Intersection figure](./docs/img/intersection_map.PNG?raw=true "RBJ Feature Selection Diagram")
 In the above figure, the yellow route was edited by the current user in the current WMX job. The rose colored polygon represents the 10 meter buffer that is created while executing the `Execute Reviewer Batch Job on R&H Tool` from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram. The black routes will not be validated.
