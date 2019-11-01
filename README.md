@@ -52,13 +52,10 @@ Here is a list of the checks that are currently included in the [RBJ](https://gi
 ### Centerline Checks
 | Check Title             | DR Check Type           | Where Clause              | Additional Parameters |
 |-------------------------|-------------------------|---------------------------|-----------------------|
-| Multipart Feature       | Multipart Feature       |
-| Duplicate Vertices      | Duplicate Vertices      | Tolerance: 0\.0011 meters |
-| Overlapping Centerlines | Overlapping Centerlines | "FC1: Centerlines         |
-| FC2: Centerlines        |
-| Type: Overlap           |
-| Attributes: None"       |
-| Invalid Geometry        | Invalid Geometry        |
+| Multipart Feature       | Multipart Feature       |                           |                       |
+| Duplicate Vertices      | Duplicate Vertices      |                           | Tolerance: 0\.0011 meters |
+| Overlapping Centerlines | Overlapping Centerlines |                           |"FC1: Centerlines <br> FC2: Centerlines <br> Type: Overlap <br> Attributes: None
+| Invalid Geometry        | Invalid Geometry        |                           |                       |
 
 ### Calibration Point Checks
 | Check Title        | DR Check Type    | Where Clause                                                                                                                | Additional Parameters |
