@@ -5,7 +5,7 @@ ArcGIS geoprocessing tools and scripts to execute Esri Data Reviewer from Workfl
 The WMXDataReviewerTools repository is the source code for the NYSDOT Validations Toolbox, which executes various Data Reviewer jobs against the Milepoint LRS. The validations and the code within this repository make strong assumptions regarding the schema of the data, thus this toolbox is not expected to "just run" on other datasets. However, it should serve as a fine example of some methods used to employ Data Reviewer in a Workflow Manager Workflow.
 
 The toolbox consists of four tools:
-!Screenshot Placeholder!
+![Expanded toolbox screenshot](/docs/img/expanded_toolbox.png?raw=true "NYSDOT Validations Toolbox")
 
 #### 1. Execute Reviewer Batch Job on R&H Edits
 Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons.
