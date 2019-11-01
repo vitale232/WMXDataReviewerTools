@@ -658,8 +658,8 @@ def validate_county_order_value(dot_id_routes, dot_id, direction,
         route_ids as the values
     """
     violations = defaultdict(list)
-    rule_text_sequence = 'COUNTY_ORDER does not increment by a value of 1 for this DOT_ID'
-    rule_text_not_one = 'COUNTY_ORDER does not equal \'01\' for singular DOT_ID'
+    rule_text_sequence = 'COUNTY_ORDER must increment by a value of 1 for this DOT_ID'
+    rule_text_not_one = 'COUNTY_ORDER must equal \'01\' for singular DOT_ID'
     rule_text_length_error = 'COUNTY_ORDER has too many ROUTE_IDs for this DOT_ID'
 
     county_orders = dot_id_routes[dot_id]
