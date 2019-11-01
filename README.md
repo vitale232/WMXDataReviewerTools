@@ -105,28 +105,31 @@ Roads and Highways provides dialog boxes for users to input roadway attributes. 
 
 The Roadway Level Attribute checks are managed in a Python function. The relevant features are read from the LRSN_Milepoint table using `arcpy.da.SearchCursor`, and the attributes and ROADWAY_TYPE are passed into the function. The function checks for the following relationships:
 
-| Validation                                           | Roadway Type  |
-|------------------------------------------------------|---------------|
-| ROUTE\_ID must be a nine digit number                |
-| DOT\_ID must be a six digit number                   |
-| COUNTY\_ORDER must be 2 digit zero padded            |
-| COUNTY\_ORDER must be greater than 00                |
-| COUNTY\_ORDER should be less than 29                 |
-| SIGNING must be null                                 | Road or Ramp  |
-| ROUTE\_NUMBER must be null                           | Road or Ramp  |
-| ROUTE\_SUFFIX must be null                           | Road or Ramp  |
-| ROUTE\_QUALIFIER must be null                        | Road or Ramp  |
-| PARKWAY\_FLAG must be No                             | Road or Ramp  |
-| ROADWAY\_FEATURE must be null                        | Road or Ramp  |
-| ROUTE\_NUMBER must not be null                       | Route         |
-| ROADWAY\_FEATURE must be null                        | Route         |
-| ROUTE\_NUMBER must be 900 route when SIGNING is null | Route         |
-| SIGNING must be null                                 | Non\-Mainline |
-| ROUTE\_NUMBER must be null                           | Non\-Mainline |
-| ROUTE\_SUFFIX must be null                           | Non\-Mainline |
-| ROUTE\_QUALIFIER must be null                        | Non\-Mainline |
-| PARKWAY\_FLAG must be No                             | Non\-Mainline |
-| ROADWAY\_FEATURE must not be null                    | Non\-Mainline |
+| Validation                                                    | Roadway Type                        |
+|---------------------------------------------------------------|-------------------------------------|
+| ROUTE\_ID must be a nine digit number                         | Road, Ramp, Route, or Non\-Mainline |
+| DOT\_ID must be a six digit number                            | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER must be 2 digit zero padded                     | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER must be greater than 00                         | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER should be less than 29                          | Road, Ramp, Route, or Non\-Mainline |
+| SIGNING must be null                                          | Road or Ramp                        |
+| ROUTE\_NUMBER must be null                                    | Road or Ramp                        |
+| ROUTE\_SUFFIX must be null                                    | Road or Ramp                        |
+| ROUTE\_QUALIFIER must be 'No Qualifier'                       | Road or Ramp                        |
+| PARKWAY\_FLAG must be No                                      | Road or Ramp                        |
+| ROADWAY\_FEATURE must be null                                 | Road or Ramp                        |
+| ROUTE\_NUMBER must not be null                                | Route                               |
+| ROADWAY\_FEATURE must be null                                 | Route                               |
+| ROUTE\_NUMBER must be '900' route when SIGNING is null        | Route                               |
+| SIGNING must be null                                          | Non\-Mainline                       |
+| ROUTE\_NUMBER must be null                                    | Non\-Mainline                       |
+| ROUTE\_SUFFIX must be null                                    | Non\-Mainline                       |
+| ROUTE\_QUALIFIER must be null                                 | Non\-Mainline                       |
+| PARKWAY\_FLAG must be 'No'                                    | Non\-Mainline                       |
+| ROADWAY\_FEATURE must not be null                             | Non\-Mainline                       |
+| COUNTY\_ORDER must increment by a value of 1 for this DOT\_ID | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER must equal '01' for singular DOT\_ID            | Road, Ramp, Route, or Non\-Mainline |
+| COUNTY\_ORDER has too many ROUTE\_IDs for this DOT\_ID        | Road, Ramp, Route, or Non\-Mainline |
 
 ## Execute SQL Validations
 The SQL Validations check the full LRSN_Milepoint table for some essential relationships. While these validations are partially redundant, they provide the added benefit of always validating the entire active route network. This is extremely beneficial, as systems downstream of the R&H interface rely on sound data quality.
