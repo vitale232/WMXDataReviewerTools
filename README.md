@@ -25,7 +25,9 @@ This toolbox is mainly designed to run within a Workflow Manager Workflow. The t
 
 In NYSDOT's current workflow, the Execute All Validations tool is called. You can see the schematics of the workflow below:
 
-!Screenshot Placeholder!
+![Expanded toolbox screenshot](./docs/img/workflow.PNG?raw=true "NYSDOT Validations Toolbox")
+
+
 ## Ad-Hoc
 These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCatalog. It's important to understand the input parameters for the tool prior to execution, as they're designed to be pre-populated by Workflow Manager. Higher level documentation can be viewed in the tool help, but here's a brief description:
 
