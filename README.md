@@ -5,19 +5,19 @@ ArcGIS geoprocessing tools and scripts to execute Esri Data Reviewer from Workfl
 The WMXDataReviewerTools repository is the source code for the NYSDOT Validations Toolbox, which executes various Data Reviewer jobs against the Milepoint LRS. The validations and the code within this repository make strong assumptions regarding the schema of the data, thus this toolbox is not expected to "just run" on other datasets. However, it should serve as a fine example of some methods used to employ Data Reviewer in a Workflow Manager Workflow.
 
 The toolbox consists of four tools:
-
-1. Execute Reviewer Batch Job on R&H Edits
-2. Execute Roadway Level Attribute Validations
-3. Execute SQL Validations Against Network
-4. Execute All validations
-
 !Screenshot Placeholder!
 
-These four tools serve the following purpose (in the same order):
-1. Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons.
-2. Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include Local Roads should not have a `ROUTE_NUMBER`, `COUNTY_ORDER` should be a series of numbers incrementing by a value of one on a `DOT_ID`, the `ROUTE_SUFFIX` of a `ROADWAY_TYPE=Route` must be `None`, and many other validations. View the source code or the table below for a complete list.
-3. These validations are executed against the entire LRSN_Milepoint table, validating only active routes. There are two SQL queries that are executed as apart of this validation tool, one of which ensures there is only one combination of roadway-level attributes, the other of which ensures there is not more than one combination of `DOT_ID, COUNTY_ORDER, and DIRECTION`.
-4. This tool serves as a wrapper function for items 1 through 3 of these lists. It executes the tools in this order: Execute Roadway Level Attribute Validations, Execute Reviewer Batch Job on R&H Edits, and Execute SQL Validations Against Network. The flow of data in this tool assumes this execution order.
+### 1. Execute Reviewer Batch Job on R&H Edits
+Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons.
+
+### 2. Execute Roadway Level Attribute Validations
+Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include Local Roads should not have a `ROUTE_NUMBER`, `COUNTY_ORDER` should be a series of numbers incrementing by a value of one on a `DOT_ID`, the `ROUTE_SUFFIX` of a `ROADWAY_TYPE=Route` must be `None`, and many other validations. View the source code or the table below for a complete list.
+
+### 3. Execute SQL Validations Against Network
+These validations are executed against the entire LRSN_Milepoint table, validating only active routes. There are two SQL queries that are executed as apart of this validation tool, one of which ensures there is only one combination of roadway-level attributes, the other of which ensures there is not more than one combination of `DOT_ID, COUNTY_ORDER, and DIRECTION`.
+
+### 4. Execute All validations
+This tool serves as a wrapper function for items 1 through 3 of these lists. It executes the tools in this order: Execute Roadway Level Attribute Validations, Execute Reviewer Batch Job on R&H Edits, and Execute SQL Validations Against Network. The flow of data in this tool assumes this execution order.
 
 # Execution
 ## Workflow Manager
