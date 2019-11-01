@@ -1,5 +1,5 @@
-# WMXDataReviewerTools
-ArcGIS geoprocessing tools and scripts to execute Esri Data Reviewer from Workflow Manager on a Roads and Highways ALRS. These validation tools are implemented using an ArcGIS Python Toolbox in ArcGIS Desktop 10.5.1. Esri does a nice job documenting [Python Toolboxes](http://desktop.arcgis.com/en/arcmap/10.5/analyze/creating-tools/a-quick-tour-of-python-toolboxes.htm).
+# Workflow Manager (WMX) Data Reviewer Tools
+This repository contains ArcGIS geoprocessing tools and scripts to execute Esri Data Reviewer from Workflow Manager on a Roads and Highways ALRS. These validation tools are implemented using an ArcGIS Python Toolbox in ArcGIS Desktop 10.5.1. Esri does a nice job documenting [Python Toolboxes](http://desktop.arcgis.com/en/arcmap/10.5/analyze/creating-tools/a-quick-tour-of-python-toolboxes.htm).
 
 ## About the Tools
 The WMXDataReviewerTools repository is the source code for the NYSDOT Validations Toolbox, which executes various Data Reviewer jobs against the Milepoint LRS. The validations and the code within this repository make strong assumptions regarding the schema of the data, thus this toolbox is not expected to "just run" on other datasets. However, it should serve as a fine example of some methods used to employ Data Reviewer in a Workflow Manager Workflow.
@@ -7,8 +7,10 @@ The WMXDataReviewerTools repository is the source code for the NYSDOT Validation
 The toolbox consists of four tools: <br>
 ![Expanded toolbox screenshot](./docs/img/expanded_toolbox.PNG?raw=true "NYSDOT Validations Toolbox")
 
-#### 1. Execute Reviewer Batch Job on R&H Edits
-Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons.
+#### 1. Execute Reviewer Batch Job (RBJ) on R&H Edits
+Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This leads to the inclusion of routes that were not directly edited by the user in this given session in the RBJ execution.
+![RBJ Buffer Intersection figure](./docs/img/intersection_map.PNG?raw=true "RBJ Feature Selection Diagram")
+In the above figure, the yellow route was edited by the current user in the current WMX job. The red polygon represents the 10 meter buffer that is created while executing the Execute Reviewer Batch Job on R&H Tools from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram.
 
 #### 2. Execute Roadway Level Attribute Validations
 Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include Local Roads should not have a `ROUTE_NUMBER`, `COUNTY_ORDER` should be a series of numbers incrementing by a value of one on a `DOT_ID`, the `ROUTE_SUFFIX` of a `ROADWAY_TYPE=Route` must be `None`, and many other validations. View the source code or the table below for a complete list.
