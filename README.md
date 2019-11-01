@@ -9,6 +9,7 @@ The toolbox consists of four tools: <br>
 
 #### 1. Execute Reviewer Batch Job (RBJ) on R&H Edits
 Selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This leads to the inclusion of routes that were not directly edited by the user in this given session in the RBJ execution.
+
 ![RBJ Buffer Intersection figure](./docs/img/intersection_map.PNG?raw=true "RBJ Feature Selection Diagram")
 In the above figure, the yellow route was edited by the current user in the current WMX job. The red polygon represents the 10 meter buffer that is created while executing the Execute Reviewer Batch Job on R&H Tools from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram.
 
