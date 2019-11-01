@@ -21,11 +21,12 @@ This tool serves as a wrapper function for items 1 through 3 of these lists. It 
 
 # Execution
 ## Workflow Manager
-This toolbox is mainly designed to run within a Workflow Manager Workflow. The typical workflow will create a unique version for the user, create a corresponding Reviewer Workspace, launch ArcMap with the proper version and workspace so that the user can conduct their edits, launch this Python Toolbox as a geoprocessing tool, launch ArcMap again so the user can see the results of the validations, and finally close the version and the Workflow Manager job.
+This toolbox is mainly designed to run within a Workflow Manager 
+The typical workflow will create a unique version for the user, create a corresponding Reviewer Workspace, launch ArcMap with the proper version and workspace so that the user can conduct their edits, launch this Python Toolbox as a geoprocessing tool, launch ArcMap again so the user can see the results of the validations, and finally close the version and the Workflow Manager job.
 
 In NYSDOT's current workflow, the Execute All Validations tool is called. You can see the schematics of the workflow below:
 
-![Expanded toolbox screenshot](./docs/img/workflow.PNG?raw=true "NYSDOT Validations Toolbox")
+![Workflow Manager Workflow screenshot](./docs/img/workflow_diagram.PNG?raw=true "Esri Workflow Manager (WMX) Workflow")
 
 
 ## Ad-Hoc
