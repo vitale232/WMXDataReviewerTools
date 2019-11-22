@@ -240,7 +240,7 @@ def get_reviewer_session_name(reviewer_ws, job__owned_by, job_id, logger=None, a
     Workspace. Due to a small WMX bug, the short username can be CamelCase, ALL CAPS, or lowercase.
     To workaround the bug, this function first tries the short username as it's passed in. If that
     doesn't work, it tries the short username in all lowercase. If that doesn't work, it tries the
-    short username in all caps. If that doesn't work, it quits with an error.
+    short username in all caps. If that doesn't work, it quits with a NoReviewerSessionIDError exception.
 
     Arguments
     ---------
@@ -277,7 +277,6 @@ def get_reviewer_session_name(reviewer_ws, job__owned_by, job_id, logger=None, a
         )
     except NoReviewerSessionIDError:
         try:
-
             reviewer_where_clause = 'USERNAME = \'{user}\' AND SESSIONNAME = \'{job_id}\''.format(
                 user=job__owned_by.lower(),
                 job_id=job_id

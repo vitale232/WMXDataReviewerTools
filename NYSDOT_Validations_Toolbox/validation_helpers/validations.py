@@ -22,14 +22,15 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 logger=None, messages=None):
     """
     This function executes the Data Reviewer Batch Job. The workflow of the function is as follows:
-    1. Use the WMX job__id and job__owned by "tokens" to capture the version name and username
+    1. Use the WMX job__id and job__owned_by "tokens" to capture the version name and username
     2. Use the full_db_flag or job__owned_by and job__started_date WMX token to figure out which features to validate.
-       If the full_db_flag is set, all features are validated. If the full_db_flag is False, the job__owned_by and
+       If the full_db_flag is True, all features are validated. If the full_db_flag is False, the job__owned_by and
        job__started_date parameters are used to query the LRSN_Milepoint.EDITED_BY and LRSN_Milepoint.EDITED_DATE
        fields for recent updates. EDITED_BY and EDITED_DATE are automatically updated with the username and time
        of the transaction for edits of existing data and creation of new data
-    3. Run the Data Reviewer Batch Job using the Geoprocessing tool with the buffer polygons or LRSN_Milepoint
-       extent as the area of interst (which is used is determined by the full_db_flag)
+    3. If the full_db_flag is False, buffer all edits conducted by job__owned_by since job__started_date by 10 meters
+    4. Run the Data Reviewer Batch Job using the Geoprocessing tool with the buffer polygons or LRSN_Milepoint
+       extent as the area of interest (which is used is determined by the full_db_flag)
 
     Arguments
     ---------
@@ -79,7 +80,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                     level='info', logger=logger, arcpy_messages=messages)
         else:
             utils.log_it(('Calling run_batch_on_buffered_edits(): Running Reviewer Batch Job on ' +
-                'all features in {}'.format(production_ws_version)),
+                'all features in user\'s version: {}'.format(production_ws_version)),
                 level='info', logger=logger, arcpy_messages=messages)
 
         if not version_milepoint_layer:
@@ -300,19 +301,23 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
             level='debug', logger=logger, arcpy_messages=messages)
         connection.execute(change_versioned_view_sql)
 
-        unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
         utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=unique_rdwy_attrs_sql),
             level='debug', logger=logger, arcpy_messages=messages)
+        unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
 
-        unique_co_dir_result = connection.execute(unique_co_dir_sql)
         utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=unique_co_dir_sql),
             level='debug', logger=logger, arcpy_messages=messages)
+        unique_co_dir_result = connection.execute(unique_co_dir_sql)
 
         # Try changing the connection/versioned view back to Lockroot to release locks on the edit version for WMX
-        connection.execute('EXEC ELRS.sde.set_current_version "ELRS.Lockroot";')
+        try:
+            connection.execute('EXEC ELRS.sde.set_current_version "ELRS.Lockroot";')
+        except:
+            utils.log_it('Failed to change versioned view to "ELRS.Lockroot", but the validation SQL succeeded',
+                level='debug', logger=logger, arcpy_messages=messages)
 
-        # If the query succeeds but the response is empty, arcpy returns a python
-        #  boolean type with a True value. Convert booleans to an empty list to
+        # If the query succeeds but the response is empty, arcpy returns a Python
+        #  boolean type with a value of True. Convert booleans to an empty list to
         #  simplify the results handling logic.
         if isinstance(unique_co_dir_result, bool):
             unique_co_dir_result = []
