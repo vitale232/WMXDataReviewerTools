@@ -16,6 +16,7 @@ fs.readFile(__dirname + '/style.css', function (err, styleData) {
       simpleLineBreaks: true,
       ghMentions: true,
       tables: true,
+      literalMidWordUnderscores: true,
     });
 
     let preContent = `
