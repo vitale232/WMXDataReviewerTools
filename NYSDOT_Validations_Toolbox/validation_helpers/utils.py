@@ -83,12 +83,12 @@ def get_version_milepoint_layer(production_ws, production_ws_version,
         milepoint_fc = milepoint_fcs[0]
     else:
         raise ValueError(
-            'Too many feature classes were selected while trying to find LRSN_Milepoint. ' +
+            'Too many or too few feature classes were selected while trying to find LRSN_Milepoint. ' +
             'Selected FCs: {}'.format(milepoint_fcs)
         )
-
     log_it('found milepoint FC: {}'.format(milepoint_fc),
         level='warn', logger=logger, arcpy_messages=arcpy_messages)
+
     sde_milepoint_layer = arcpy.MakeFeatureLayer_management(
         milepoint_fc,
         'milepoint_layer_{}'.format(int(time.time()))
