@@ -107,8 +107,9 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             )
         else:
             where_clause = ACTIVE_ROUTES_QUERY
-        utils.log_it('where_clause={}'.format(where_clause), logger=logger, arcpy_messages=messages)
-        utils.log_it('Using where_clause to find recent edits of {}: {}'.format(milepoint_fc, where_clause),
+
+        utils.log_it(
+            'Using where_clause to find recent edits of {} | where_clause: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
 
         version_select_milepoint_layer = arcpy.SelectLayerByAttribute_management(
