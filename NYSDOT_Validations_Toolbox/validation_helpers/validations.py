@@ -16,6 +16,7 @@ from validation_helpers.active_routes import ACTIVE_ROUTES_QUERY
 def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                                 production_ws, job__id,
                                 job__started_date, job__owned_by,
+                                production_ws_version=None,
                                 version_milepoint_layer=None,
                                 milepoint_fc=None,
                                 full_db_flag=False,
@@ -66,13 +67,20 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         # Set the database connection as the workspace. All table and FC references come from here
         arcpy.env.workspace = production_ws
 
-        user, production_ws_version = utils.get_user_and_version(
-            job__owned_by,
-            job__id,
-            production_ws,
-            logger=None,
-            arcpy_messages=None
-        )
+        if production_ws_version:
+            user = job__owned_by.upper()
+        else:
+            user, production_ws_version = utils.get_user_and_version(
+                job__owned_by,
+                job__id,
+                production_ws,
+                logger=None,
+                arcpy_messages=None
+            )
+        utils.log_it('User determined to be: {}'.format(user),
+            level='debug', logger=logger, arcpy_messages=messages)
+        utils.log_it('Connecting to version name: {}'.format(production_ws_version),
+            level='debug', logger=logger, arcpy_messages=messages)
 
         if not full_db_flag:
             utils.log_it(('Calling run_batch_on_buffered_edits(): Selecting edits made by {} '.format(user) +
@@ -197,6 +205,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
 
 def run_sql_validations(reviewer_ws, production_ws, job__id,
                         job__started_date, job__owned_by,
+                        production_ws_version=None,
                         version_milepoint_layer=None,
                         milepoint_fc=None,
                         logger=None, messages=None):
@@ -279,13 +288,20 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
         arcpy.env.workspace = production_ws
 
-        user, production_ws_version = utils.get_user_and_version(
-            job__owned_by,
-            job__id,
-            production_ws,
-            logger=None,
-            arcpy_messages=None
-        )
+        if production_ws_version:
+            user = job__owned_by.upper()
+        else:
+            user, production_ws_version = utils.get_user_and_version(
+                job__owned_by,
+                job__id,
+                production_ws,
+                logger=None,
+                arcpy_messages=None
+            )
+        utils.log_it('User determined to be: {}'.format(user),
+            level='debug', logger=logger, arcpy_messages=messages)
+        utils.log_it('Connecting to version name: {}'.format(production_ws_version),
+            level='debug', logger=logger, arcpy_messages=messages)
 
         utils.log_it(('Connecting to the production database and executing ' +
             'SQL validations -> database: {} | version: {}'.format(
@@ -424,6 +440,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
 
 def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
                                        job__started_date, job__owned_by,
+                                       production_ws_version=None,
                                        version_milepoint_layer=None,
                                        milepoint_fc=None,
                                        full_db_flag=False,
@@ -483,13 +500,20 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         # Set the database connection as the workspace. All table and FC references come from here
         arcpy.env.workspace = production_ws
 
-        user, production_ws_version = utils.get_user_and_version(
-            job__owned_by,
-            job__id,
-            production_ws,
-            logger=logger,
-            arcpy_messages=messages
-        )
+        if production_ws_version:
+            user = job__owned_by.upper()
+        else:
+            user, production_ws_version = utils.get_user_and_version(
+                job__owned_by,
+                job__id,
+                production_ws,
+                logger=None,
+                arcpy_messages=None
+            )
+        utils.log_it('User determined to be: {}'.format(user),
+            level='debug', logger=logger, arcpy_messages=messages)
+        utils.log_it('Connecting to version name: {}'.format(production_ws_version),
+            level='debug', logger=logger, arcpy_messages=messages)
 
         if not version_milepoint_layer:
             # Get a versioned view of milepoint if not passed in

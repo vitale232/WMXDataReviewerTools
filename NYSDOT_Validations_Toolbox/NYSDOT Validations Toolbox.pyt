@@ -70,6 +70,13 @@ class NYSDOTValidationsMixin(object):
             direction='Input'
         )
 
+        production_ws_version_param = arcpy.Parameter(
+            displayName='Production WS Version (ELRS.Lockroot or Edit Version)',
+            name='production_ws_version',
+            datatype='GPString',
+            parameterType='Required',
+        )
+
         reviewer_ws_param = arcpy.Parameter(
             displayName='Reviewer Workspace',
             name='reviewer_ws',
@@ -95,6 +102,7 @@ class NYSDOTValidationsMixin(object):
             category='Logging'
         )
 
+        # Look in the ArcCatalog Database Connections folder for the appropriate SDE file (ELRS lockroot version)
         if arcpy.Exists(r'Database Connections\dev_elrs_ad_Lockroot.sde'):
             production_ws_param.value = r'Database Connections\dev_elrs_ad_Lockroot.sde'
         elif arcpy.Exists(r'Database Connections\dev_elrs_ad_lockroot.sde'):
@@ -104,6 +112,7 @@ class NYSDOTValidationsMixin(object):
         else:
             pass
 
+        # Look in the ArcCatalog Database Connections folder for the appropriate SDE file (SDE DR database)
         if arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_ad.sde'):
             reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_ad.sde'
         elif arcpy.Exists(r'Database Connections\dev_elrs_DataReviewer_ad.sde'):
@@ -113,13 +122,20 @@ class NYSDOTValidationsMixin(object):
         else:
             pass
 
+        # Set options for production WS version
+        production_ws_version_param.filter.type = 'ValueList'
+        production_ws_version_param.filter.list = ['ELRS.Lockroot', 'Edit Version (Determined from WMX Job ID)']
+        production_ws_version_param.value = 'ELRS.Lockroot'
+
+        # Set options for log level param
         log_level_param.filter.type = 'ValueList'
         log_level_param.filter.list = ['DEBUG', 'INFO']
         log_level_param.value = 'DEBUG'
 
         params = [
             job__started_date_param, job__owned_by_param, job__id_param,
-            production_ws_param, reviewer_ws_param, log_path_param, log_level_param
+            production_ws_param, production_ws_version_param, reviewer_ws_param,
+            log_path_param, log_level_param
         ]
 
         return params
@@ -159,9 +175,10 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
         job__owned_by = parameters[1].valueAsText
         job__id = parameters[2].valueAsText
         production_ws = parameters[3].valueAsText
-        reviewer_ws = parameters[4].valueAsText
-        log_path = parameters[5].valueAsText
-        log_level = parameters[6].valueAsText
+        production_ws_version_flag = parameters[4].valueAsText
+        reviewer_ws = parameters[5].valueAsText
+        log_path = parameters[6].valueAsText
+        log_level = parameters[7].valueAsText
 
         if log_path == '':
             log_path = None
@@ -175,6 +192,10 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
             log_level = 20
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
+
+        utils.log_it('production_ws_version_flag={}'.format(production_ws_version_flag),
+            level='warn', logger=logger, arcpy_messages=messages)
+
 
         user, production_ws_version = utils.get_user_and_version(
             job__owned_by,
@@ -262,10 +283,11 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         job__owned_by = parameters[1].valueAsText
         job__id = parameters[2].valueAsText
         production_ws = parameters[3].valueAsText
-        reviewer_ws = parameters[4].valueAsText
-        log_path = parameters[5].valueAsText
-        log_level = parameters[6].valueAsText
-        full_db_flag = parameters[7].valueAsText
+        production_ws_version_flag = parameters[4].valueAsText
+        reviewer_ws = parameters[5].valueAsText
+        log_path = parameters[6].valueAsText
+        log_level = parameters[7].valueAsText
+        full_db_flag = parameters[8].valueAsText
 
         if full_db_flag == 'true':
             full_db_flag = True
@@ -284,6 +306,10 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
             log_level = 20
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
+
+        utils.log_it('production_ws_version_flag={}'.format(production_ws_version_flag),
+            level='warn', logger=logger, arcpy_messages=messages)
+
 
         user, production_ws_version = utils.get_user_and_version(
             job__owned_by,
@@ -377,11 +403,12 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
         job__owned_by = parameters[1].valueAsText
         job__id = parameters[2].valueAsText
         production_ws = parameters[3].valueAsText
-        reviewer_ws = parameters[4].valueAsText
-        log_path = parameters[5].valueAsText
-        log_level = parameters[6].valueAsText
-        batch_job_file = parameters[7].valueAsText
-        full_db_flag = parameters[8].valueAsText
+        production_ws_version_flag = parameters[4].valueAsText
+        reviewer_ws = parameters[5].valueAsText
+        log_path = parameters[6].valueAsText
+        log_level = parameters[7].valueAsText
+        batch_job_file = parameters[8].valueAsText
+        full_db_flag = parameters[9].valueAsText
 
         if log_path == '':
             log_path = None
@@ -395,6 +422,9 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             log_level = 20
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
+
+        utils.log_it('production_ws_version_flag={}'.format(production_ws_version_flag),
+            level='warn', logger=logger, arcpy_messages=messages)
 
         user, production_ws_version = utils.get_user_and_version(
             job__owned_by,
@@ -485,12 +515,16 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         job__owned_by = parameters[1].valueAsText
         job__id = parameters[2].valueAsText
         production_ws = parameters[3].valueAsText
-        reviewer_ws = parameters[4].valueAsText
-        log_path = parameters[5].valueAsText
-        log_level = parameters[6].valueAsText
-        batch_job_file = parameters[7].valueAsText
-        full_db_flag = parameters[8].valueAsText
+        production_ws_version_flag = parameters[4].valueAsText
+        reviewer_ws = parameters[5].valueAsText
+        log_path = parameters[6].valueAsText
+        log_level = parameters[7].valueAsText
+        batch_job_file = parameters[8].valueAsText
+        full_db_flag = parameters[9].valueAsText
 
+        logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
+
+        # Convert to full_db_flag from an arcpy String type to a Python boolean
         if full_db_flag == 'true':
             full_db_flag = True
         else:
@@ -499,6 +533,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         if log_path == '':
             log_path = None
 
+        # Translate readable log levels to the Python logging module coding
         if log_level.upper() == 'INFO':
             log_level = 20
         elif log_level.upper() == 'DEBUG':
@@ -507,18 +542,29 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             # Fall back to info level logging
             log_level = 20
 
-        logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
+        # Determine which database version needs to be validated and save it as the production_ws_version variable
+        if production_ws_version_flag == 'ELRS.Lockroot':
+            production_ws_version = utils.get_lockroot_version(production_ws, production_ws_version_flag)
+            # If the production_ws_version is not found, change the
+            # production_ws_version_flag to force the following code block to execute
+            if not production_ws_version:
+                production_ws_version_flag = 'NotLockroot'
 
-        utils.log_it('ExecuteAllValidations.execute(): Generating versioned view of LRS Network',
+        if production_ws_version_flag != 'ELRS.Lockroot':
+            user, production_ws_version = utils.get_user_and_version(
+                job__owned_by,
+                job__id,
+                production_ws,
+                logger=logger,
+                arcpy_messages=messages
+            )
+            utils.log_it('got version from get_user_and_version()',
+                level='warn', logger=logger, arcpy_messages=messages)
+
+        utils.log_it(
+            'ExecuteAllValidations.execute(): Generating versioned view of ' +
+            'LRS Network using version: {}'.format(production_ws_version),
             level='info', logger=logger, arcpy_messages=messages)
-
-        user, production_ws_version = utils.get_user_and_version(
-            job__owned_by,
-            job__id,
-            production_ws,
-            logger=logger,
-            arcpy_messages=messages
-        )
 
         milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
             production_ws,
@@ -534,6 +580,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            production_ws_version=production_ws_version,
             version_milepoint_layer=version_milepoint_layer,
             milepoint_fc=milepoint_fc,
             full_db_flag=full_db_flag,
@@ -548,6 +595,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            production_ws_version=production_ws_version,
             version_milepoint_layer=version_milepoint_layer,
             milepoint_fc=milepoint_fc,
             full_db_flag=full_db_flag,
@@ -561,6 +609,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            production_ws_version=production_ws_version,
             version_milepoint_layer=version_milepoint_layer,
             milepoint_fc=milepoint_fc,
             logger=logger,
@@ -570,7 +619,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         arcpy.Delete_management(version_milepoint_layer)
         arcpy.ClearWorkspaceCache_management()
 
-        utils.log_it('#'*4 + ' All validations have completed without error! ' + '#'*4,
+        utils.log_it('#'*4 + ' All validations have run successfully! ' + '#'*4,
             level='info', logger=logger, arcpy_messages=messages)
 
         return True
