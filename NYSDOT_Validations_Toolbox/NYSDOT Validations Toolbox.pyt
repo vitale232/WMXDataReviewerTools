@@ -43,7 +43,7 @@ class NYSDOTValidationsMixin(object):
             name='job__started_date',
             datatype='GPDate',
             parameterType='Required',
-            direction='Input'
+            direction='Input',
         )
 
         job__owned_by_param = arcpy.Parameter(
@@ -51,7 +51,7 @@ class NYSDOTValidationsMixin(object):
             name='job__owned_by',
             datatype='GPString',
             parameterType='Required',
-            direction='Input'
+            direction='Input',
         )
 
         job__id_param = arcpy.Parameter(
@@ -59,7 +59,7 @@ class NYSDOTValidationsMixin(object):
             name='job__id',
             datatype='GPString',
             parameterType='Required',
-            direction='Input'
+            direction='Input',
         )
 
         production_ws_param = arcpy.Parameter(
@@ -67,7 +67,7 @@ class NYSDOTValidationsMixin(object):
             name='production_ws',
             datatype='DEWorkspace',
             parameterType='Required',
-            direction='Input'
+            direction='Input',
         )
 
         production_ws_version_param = arcpy.Parameter(
@@ -78,11 +78,11 @@ class NYSDOTValidationsMixin(object):
         )
 
         reviewer_ws_param = arcpy.Parameter(
-            displayName='Reviewer Workspace',
+            displayName='Reviewer Workspace (SDE File or DR Enabled FGDB)',
             name='reviewer_ws',
             datatype='DEWorkspace',
             parameterType='Required',
-            direction='Input'
+            direction='Input',
         )
 
         log_path_param = arcpy.Parameter(
@@ -130,7 +130,7 @@ class NYSDOTValidationsMixin(object):
         # Set options for log level param
         log_level_param.filter.type = 'ValueList'
         log_level_param.filter.list = ['DEBUG', 'INFO']
-        log_level_param.value = 'DEBUG'
+        log_level_param.value = 'INFO'
 
         params = [
             job__started_date_param, job__owned_by_param, job__id_param,
@@ -150,6 +150,45 @@ class NYSDOTValidationsMixin(object):
         except Exception:
             return False
         return True
+
+
+class SupplementalParameters:
+    """
+    This is just a little convenience class to facilitate maintaining parameter code in one place.
+    Some tools require only the parameters defined in the NYSDOTValidationsMixin, but others require all of the
+    parameters from NYSDOTValidationMixin plus one or both of the parameters that are defined here.
+
+    To take advantage of this class, in the Tool's getParameterInfo definition, you must call super().getParameterInfo
+    on the NYSDOTValidationMixin. Then, you can instantiate this class, and use the required parameters' properties.
+    The getParameterInfo must return a list of parameters, so take the return value from super() and the parameters
+    that are stored on ``self`` as properties, and combine them into a final list of parameters.
+
+    Example
+    -------
+    >>> class FakeToolForToolbox(NYSDOTValidationsMixin, object):
+    >>>     def getParameterInfo(self):
+    >>>         params = super(ExecuteReviewerBatchJobOnEdits, self).getParameterInfo()
+    >>>         
+    >>>         supplemental_params = SupplementalParameters()
+    >>>         full_db_flag_param = supplemental_params.full_db_flag_param
+    >>>         
+    >>>         return [ params, full_db_flag_param ]
+    """
+    full_db_flag_param = arcpy.Parameter(
+            displayName='Run Validations on Full Geodatabase (Instead of edits)',
+            name='full_db_flag',
+            datatype='GPBoolean',
+            parameterType='Optional',
+            direction='Input',
+        )
+
+    batch_job_file_param = arcpy.Parameter(
+        displayName='Reviewer Batch Job Filepath (.rbj)',
+        name='batch_job_file',
+        datatype='DEFile',
+        parameterType='Required',
+        direction='Input',
+    )
 
 
 class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
@@ -193,27 +232,35 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
 
-        utils.log_it('production_ws_version_flag={}'.format(production_ws_version_flag),
-            level='warn', logger=logger, arcpy_messages=messages)
+        # Determine which database version needs to be validated and save it as the production_ws_version variable
+        if production_ws_version_flag == 'ELRS.Lockroot':
+            production_ws_version = utils.get_lockroot_version(production_ws, production_ws_version_flag)
+            # If the production_ws_version is not found, change the production_ws_version_flag to
+            # force the following code block to execute (attempt to validate on edit version instead)
+            if not production_ws_version:
+                production_ws_version_flag = 'NotLockroot'
 
-
-        user, production_ws_version = utils.get_user_and_version(
-            job__owned_by,
-            job__id,
-            production_ws,
-            logger=logger,
-            arcpy_messages=messages
-        )
+        if production_ws_version_flag != 'ELRS.Lockroot':
+            user, production_ws_version = utils.get_user_and_version(
+                job__owned_by,
+                job__id,
+                production_ws,
+                logger=logger,
+                arcpy_messages=messages
+            )
+        utils.log_it(
+            'ExecuteNetworkSQLValidations.execute(): Generating versioned view of ' +
+            'LRS Network | Database version: {}'.format(production_ws_version),
+            level='info', logger=logger, arcpy_messages=messages)
 
         milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
             production_ws,
             production_ws_version,
         )
-
         utils.log_it(
             ('ExecuteNetworkSQLValidations.execute(): ' +
             'Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
-            level='info', logger=logger, arcpy_messages=messages)
+            level='debug', logger=logger, arcpy_messages=messages)
 
         validations.run_sql_validations(
             reviewer_ws,
@@ -221,6 +268,7 @@ class ExecuteNetworkSQLValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            production_ws_version=production_ws_version,
             version_milepoint_layer=version_milepoint_layer,
             milepoint_fc=milepoint_fc,
             logger=logger,
@@ -259,7 +307,7 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
 
     def getParameterInfo(self):
         """
-        This tool has one additional parameter than the NYSDTOValidationsMixin, which
+        This tool has one additional parameter than the NYSDOTValidationsMixin, which
         is a flag to run the tool on the full database.
 
         The call to the `super` function returns a list of all of the parameters defined in
@@ -268,13 +316,8 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         """
         params = super(ExecuteRoadwayLevelAttributeValidations, self).getParameterInfo()
 
-        full_db_flag_param = arcpy.Parameter(
-            displayName='Run Validations on Full Geodatabase (Instead of edits)',
-            name='full_db_flag',
-            datatype='GPBoolean',
-            parameterType='Optional',
-            direction='Input'
-        )
+        supplemental_params = SupplementalParameters()
+        full_db_flag_param = supplemental_params.full_db_flag_param
 
         return params + [ full_db_flag_param ]
 
@@ -289,6 +332,7 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         log_level = parameters[7].valueAsText
         full_db_flag = parameters[8].valueAsText
 
+        # Make the arcpy parameter values Pythonic
         if full_db_flag == 'true':
             full_db_flag = True
         else:
@@ -307,17 +351,26 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
 
-        utils.log_it('production_ws_version_flag={}'.format(production_ws_version_flag),
-            level='warn', logger=logger, arcpy_messages=messages)
+        # Determine which database version needs to be validated and save it as the production_ws_version variable
+        if production_ws_version_flag == 'ELRS.Lockroot':
+            production_ws_version = utils.get_lockroot_version(production_ws, production_ws_version_flag)
+            # If the production_ws_version is not found, change the production_ws_version_flag to
+            # force the following code block to execute (attempt to validate on edit version instead)
+            if not production_ws_version:
+                production_ws_version_flag = 'NotLockroot'
 
-
-        user, production_ws_version = utils.get_user_and_version(
-            job__owned_by,
-            job__id,
-            production_ws,
-            logger=logger,
-            arcpy_messages=messages
-        )
+        if production_ws_version_flag != 'ELRS.Lockroot':
+            user, production_ws_version = utils.get_user_and_version(
+                job__owned_by,
+                job__id,
+                production_ws,
+                logger=logger,
+                arcpy_messages=messages
+            )
+        utils.log_it(
+            'ExecuteRoadwayLevelAttributeValidations.execute(): Generating versioned view of ' +
+            'LRS Network | Database version: {}'.format(production_ws_version),
+            level='info', logger=logger, arcpy_messages=messages)
 
         milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
             production_ws,
@@ -325,9 +378,9 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
         )
 
         utils.log_it(
-            ('ExecuteRoadwayLevelAttributeValidations.execute(): ' +
-            'Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
-            level='info', logger=logger, arcpy_messages=messages)
+            'ExecuteRoadwayLevelAttributeValidations.execute(): ' +
+            'Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc),
+            level='debug', logger=logger, arcpy_messages=messages)
 
         validations.run_roadway_level_attribute_checks(
             reviewer_ws,
@@ -335,6 +388,7 @@ class ExecuteRoadwayLevelAttributeValidations(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            production_ws_version=production_ws_version,
             version_milepoint_layer=version_milepoint_layer,
             milepoint_fc=milepoint_fc,
             full_db_flag=full_db_flag,
@@ -380,21 +434,10 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
         """
         params = super(ExecuteReviewerBatchJobOnEdits, self).getParameterInfo()
 
-        batch_job_file_param = arcpy.Parameter(
-            displayName='Reviewer Batch Job Filepath (.rbj)',
-            name='batch_job_file',
-            datatype='DEFile',
-            parameterType='Required',
-            direction='Input'
-        )
+        supplemental_params = SupplementalParameters()
 
-        full_db_flag_param = arcpy.Parameter(
-            displayName='Run Validations on Full Geodatabase',
-            name='full_db_flag',
-            datatype='GPBoolean',
-            parameterType='Optional',
-            direction='Input'
-        )
+        batch_job_file_param = supplemental_params.batch_job_file_param
+        full_db_flag_param = supplemental_params.full_db_flag_param
 
         return params + [ batch_job_file_param, full_db_flag_param ]
 
@@ -423,25 +466,35 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
 
         logger = utils.initialize_logger(log_path=log_path, log_level=log_level)
 
-        utils.log_it('production_ws_version_flag={}'.format(production_ws_version_flag),
-            level='warn', logger=logger, arcpy_messages=messages)
+        # Determine which database version needs to be validated and save it as the production_ws_version variable
+        if production_ws_version_flag == 'ELRS.Lockroot':
+            production_ws_version = utils.get_lockroot_version(production_ws, production_ws_version_flag)
+            # If the production_ws_version is not found, change the production_ws_version_flag to
+            # force the following code block to execute (attempt to validate on edit version instead)
+            if not production_ws_version:
+                production_ws_version_flag = 'NotLockroot'
 
-        user, production_ws_version = utils.get_user_and_version(
-            job__owned_by,
-            job__id,
-            production_ws,
-            logger=logger,
-            arcpy_messages=messages
-        )
+        if production_ws_version_flag != 'ELRS.Lockroot':
+            user, production_ws_version = utils.get_user_and_version(
+                job__owned_by,
+                job__id,
+                production_ws,
+                logger=logger,
+                arcpy_messages=messages
+            )
+        utils.log_it(
+            'ExecuteReviewerBatchJobOnEdits.execute(): Generating versioned view of ' +
+            'LRS Network | Database version: {}'.format(production_ws_version),
+            level='info', logger=logger, arcpy_messages=messages)
 
         milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
             production_ws,
             production_ws_version,
         )
-
         utils.log_it(
-            'ExecuteReviewerBatchJobOnEdits.execute(): Found milepoint_fc and created versioned layer: {}'.format(
-                milepoint_fc), level='info', logger=logger, arcpy_messages=messages)
+            'ExecuteReviewerBatchJobOnEdits.execute(): ' +
+            'Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc),
+            level='debug', logger=logger, arcpy_messages=messages)
 
         validations.run_batch_on_buffered_edits(
             reviewer_ws,
@@ -450,6 +503,7 @@ class ExecuteReviewerBatchJobOnEdits(NYSDOTValidationsMixin, object):
             job__id,
             job__started_date,
             job__owned_by,
+            production_ws_version=production_ws_version,
             version_milepoint_layer=version_milepoint_layer,
             milepoint_fc=milepoint_fc,
             full_db_flag=full_db_flag,
@@ -492,21 +546,10 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         """
         params = super(ExecuteAllValidations, self).getParameterInfo()
 
-        batch_job_file_param = arcpy.Parameter(
-            displayName='Reviewer Batch Job Filepath (.rbj)',
-            name='batch_job_file',
-            datatype='DEFile',
-            parameterType='Required',
-            direction='Input'
-        )
+        supplemental_params = SupplementalParameters()
 
-        full_db_flag_param = arcpy.Parameter(
-            displayName='Run Validations on Full Geodatabase',
-            name='full_db_flag',
-            datatype='GPBoolean',
-            parameterType='Optional',
-            direction='Input'
-        )
+        batch_job_file_param = supplemental_params.batch_job_file_param
+        full_db_flag_param = supplemental_params.full_db_flag_param
 
         return params + [ batch_job_file_param, full_db_flag_param ]
 
@@ -545,8 +588,8 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         # Determine which database version needs to be validated and save it as the production_ws_version variable
         if production_ws_version_flag == 'ELRS.Lockroot':
             production_ws_version = utils.get_lockroot_version(production_ws, production_ws_version_flag)
-            # If the production_ws_version is not found, change the
-            # production_ws_version_flag to force the following code block to execute
+            # If the production_ws_version is not found, change the production_ws_version_flag to
+            # force the following code block to execute (attempt to validate on edit version instead)
             if not production_ws_version:
                 production_ws_version_flag = 'NotLockroot'
 
@@ -558,12 +601,10 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
                 logger=logger,
                 arcpy_messages=messages
             )
-            utils.log_it('got version from get_user_and_version()',
-                level='warn', logger=logger, arcpy_messages=messages)
 
         utils.log_it(
             'ExecuteAllValidations.execute(): Generating versioned view of ' +
-            'LRS Network using version: {}'.format(production_ws_version),
+            'LRS Network | Database version: {}'.format(production_ws_version),
             level='info', logger=logger, arcpy_messages=messages)
 
         milepoint_fc, version_milepoint_layer = utils.get_version_milepoint_layer(
@@ -572,7 +613,7 @@ class ExecuteAllValidations(NYSDOTValidationsMixin, object):
         )
         utils.log_it((
             'ExecuteAllValidations.execute(): Found milepoint_fc and created versioned layer: {}'.format(milepoint_fc)),
-            level='info', logger=logger, arcpy_messages=messages)
+            level='debug', logger=logger, arcpy_messages=messages)
 
         validations.run_roadway_level_attribute_checks(
             reviewer_ws,

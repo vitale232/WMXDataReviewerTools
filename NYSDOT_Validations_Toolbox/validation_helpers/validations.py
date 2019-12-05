@@ -88,7 +88,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
                     level='info', logger=logger, arcpy_messages=messages)
         else:
             utils.log_it(('Calling run_batch_on_buffered_edits(): Running Reviewer Batch Job on ' +
-                'all features in user\'s version: {}'.format(production_ws_version)),
+                'all features in version: {}'.format(production_ws_version)),
                 level='info', logger=logger, arcpy_messages=messages)
 
         if not version_milepoint_layer:
@@ -133,7 +133,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             utils.log_it('{count} features selected'.format(count=feature_count),
                 level='debug', logger=logger, arcpy_messages=messages)
 
-            utils.log_it('Buffering edited routes by 10 meters',
+            utils.log_it('Buffering {count} edited route(s) by 10 meters'.format(count=feature_count),
                 level='info', logger=logger, arcpy_messages=messages)
             area_of_interest = 'in_memory\\mpbuff_{}'.format(int(time.time()))
 
@@ -491,11 +491,6 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         if not logger:
             logger = utils.initialize_logger(log_path=None, log_level=logging.INFO)
 
-        utils.log_it(
-            'Calling run_roadway_level_attribute_checks(): Selecting newly created ' +
-            'or edited routes by this user in this version and validating their attributes',
-            level='info', logger=logger, arcpy_messages=messages)
-
         arcpy.CheckOutExtension('datareviewer')
 
         # Set the database connection as the workspace. All table and FC references come from here
@@ -515,6 +510,15 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             level='debug', logger=logger, arcpy_messages=messages)
         utils.log_it('Connecting to version name: {}'.format(production_ws_version),
             level='debug', logger=logger, arcpy_messages=messages)
+
+        if not full_db_flag:
+            utils.log_it(('Calling run_roadway_level_attribute_checks(): Selecting edits made by {} '.format(user) +
+                    'in {} and buffering by 10 meters'.format(production_ws_version)),
+                    level='info', logger=logger, arcpy_messages=messages)
+        else:
+            utils.log_it(('Calling run_roadway_level_attribute_checks(): Running Reviewer Batch Job on ' +
+                'all features in version: {}'.format(production_ws_version)),
+                level='info', logger=logger, arcpy_messages=messages)
 
         if not version_milepoint_layer:
             # Get a versioned view of milepoint if not passed in
@@ -561,9 +565,9 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
             'NEW_SELECTION',
             where_clause=where_clause
         )
-        utils.log_it('{count} features selected'.format(
+        utils.log_it('Validating {count} route(s) roadway level attributes'.format(
             count=arcpy.GetCount_management(version_select_milepoint_layer).getOutput(0)),
-            level='debug', logger=logger, arcpy_messages=messages)
+            level='info', logger=logger, arcpy_messages=messages)
 
         # If these fields in precisely this order are not passed to the SearchCursor,
         #  the validate_roadway_type function will fail. Any updates to either function
