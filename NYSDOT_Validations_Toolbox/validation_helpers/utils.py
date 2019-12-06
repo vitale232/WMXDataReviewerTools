@@ -23,7 +23,35 @@ class NoReviewerSessionIDError(Exception):
     """
     pass
 
-def check_for_version(production_ws_version, production_ws, version_names):
+def get_lockroot_version(production_ws, version_name, lockroot_version_name='ELRS.Lockroot'):
+    """
+    Check for the Lockroot version of a particular name in the available geodatabase versions.
+
+    Arguments
+    ---------
+    :param production_ws: Filepath to the SDE file pointing to the correct database.
+    :param version_name: The version name that is thought to match the Lockroot version.
+
+    Keyword Arguments
+    -----------------
+    :param lockroot_version_name: The default Lockroot version name for the database. If this matches the version_name
+        param, the function immediately checks that the version_name exists in the SDE database. If not, all versions
+        will be examined until a version with the word lockroot in its name is found.
+    """
+    if version_name == lockroot_version_name:
+        try:
+            check_for_version(version_name, production_ws)
+            return version_name
+        except VersionDoesNotExistError:
+            pass
+    for version in arcpy.ListVersions(production_ws):
+        # If the word lockroot appears in a version name, return the first occurrence
+        if 'lockroot' in version.lower():
+            return version
+    # If lockroot is not found in one of the versions, return None
+    return None
+
+def check_for_version(production_ws_version, production_ws, version_names=None):
     """
     Check if the production_ws_version exists in the production_ws. If not, raise
     a custom exception
@@ -33,13 +61,20 @@ def check_for_version(production_ws_version, production_ws, version_names):
     :param production_ws_version: The version name that's expected to exist in the production_ws
     :param production_ws: Filepath to the SDE file pointing to the correct database. The version of the SDE filepath
         does not matter as long as it exists. The function will change to the user's version.
-    :param version_names: A list or tuple of the available versions in the database
+    
+    Keyword Arguments
+    -----------------
+    :param version_names: Defaults to None. If None, the arcpy.ListVersions routine is called on the
+        production_ws param. A list or tuple of the available versions in the database
 
     Returns
     -------
     :returns bool: When successful, the function returns True
     :raises VersionDoesNotExistError: Raises exception if version does not exist in the production_ws
     """
+    if not version_names:
+        version_names = arcpy.ListVersions(production_ws)
+
     if not production_ws_version in version_names:
         raise VersionDoesNotExistError(
             'The version name \'{}\' does not exist in the workspace \'{}\'.'.format(
