@@ -55,7 +55,7 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
             where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
 
         elif check_description == 'ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND {()}'.format(ACTIVE_ROUTES_QUERY)
+            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
 
         elif check_description == 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
             where_clause = (
