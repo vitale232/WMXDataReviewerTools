@@ -95,27 +95,29 @@ class NYSDOTValidationsMixin(object):
             category='Logging'
         )
 
-        if arcpy.Exists(r'Database Connections\dev_elrs_ad_Lockroot.sde'):
-            production_ws_param.value = r'Database Connections\dev_elrs_ad_Lockroot.sde'
-        elif arcpy.Exists(r'Database Connections\dev_elrs_ad_lockroot.sde'):
-            production_ws_param.value = r'Database Connections\dev_elrs_ad_lockroot.sde'
-        elif arcpy.Exists(r'Database Connections\dev_elrs_ad_LockRoot.sde'):
-            production_ws_param.value = r'Database Connections\dev_elrs_ad_LockRoot.sde'
+        if arcpy.Exists(r'Database Connections\prod_elrs_ad_Lockroot.sde'):
+            production_ws_param.value = r'Database Connections\prod_elrs_ad_Lockroot.sde'
+        elif arcpy.Exists(r'Database Connections\prod_elrs_elrs_ad_Lockroot.sde'):
+            production_ws_param.value = r'Database Connections\prod_elrs_elrs_ad_Lockroot.sde'
+        elif arcpy.Exists(r'Database Connections\prod_elrs_ad_lockroot.sde'):
+            production_ws_param.value = r'Database Connections\prod_elrs_ad_lockroot.sde'
+        elif arcpy.Exists(r'Database Connections\prod_elrs_elrs_ad_lockroot.sde'):
+            production_ws_param.value = r'Database Connections\prod_elrs_elrs_ad_lockroot.sde'
         else:
             pass
 
-        if arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_ad.sde'):
-            reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_ad.sde'
-        elif arcpy.Exists(r'Database Connections\dev_elrs_DataReviewer_ad.sde'):
-            reviewer_ws_param.value = r'Database Connections\dev_elrs_DataReviewer_ad.sde'
-        elif arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_dr_user.sde'):
-            reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_dr_user.sde'
-        else:
-            pass
+        # if arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_ad.sde'):
+        #     reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_ad.sde'
+        # elif arcpy.Exists(r'Database Connections\dev_elrs_DataReviewer_ad.sde'):
+        #     reviewer_ws_param.value = r'Database Connections\dev_elrs_DataReviewer_ad.sde'
+        # elif arcpy.Exists(r'Database Connections\dev_elrs_datareviewer_dr_user.sde'):
+        #     reviewer_ws_param.value = r'Database Connections\dev_elrs_datareviewer_dr_user.sde'
+        # else:
+        #     pass
 
         log_level_param.filter.type = 'ValueList'
         log_level_param.filter.list = ['DEBUG', 'INFO']
-        log_level_param.value = 'DEBUG'
+        log_level_param.value = 'INFO'
 
         params = [
             job__started_date_param, job__owned_by_param, job__id_param,
