@@ -4,4 +4,7 @@
         120
     ],
     "python.pythonPath": "C:\\Python27\\ArcGIS10.5\\python.exe",
+    "python.linting.banditEnabled": true,
+    "python.linting.enabled": true,
+    "python.linting.banditPath": "C:\\Users\\avitale\\AppData\\Roaming\\Python\\Scripts\\bandit.exe",
 }
