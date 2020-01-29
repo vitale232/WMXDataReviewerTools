@@ -1,8 +1,7 @@
 import arcpy
 
 import validation_helpers.utils as utils
-
-from validation_helpers.active_routes import ACTIVE_ROUTES_QUERY
+from validation_helpers.config import ACTIVE_ROUTES_WHERE_CLAUSE
 
 
 def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_layer, reviewer_ws,
@@ -49,25 +48,31 @@ def roadway_level_attribute_result_to_reviewer_table(result_dict, versioned_laye
         #  ROUTE_ID IN () style query. Force a different where_clause for these cases to support
         #  the full_db_flag
         if check_description == 'SIGNING must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'SIGNING IS NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
+            where_clause = 'SIGNING IS NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(
+                ACTIVE_ROUTES_WHERE_CLAUSE
+            )
 
         elif check_description == 'ROUTE_SUFFIX must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
+            where_clause = 'ROUTE_SUFFIX IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(
+                ACTIVE_ROUTES_WHERE_CLAUSE
+            )
 
         elif check_description == 'ROADWAY_FEATURE must be null when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
+            where_clause = 'ROADWAY_FEATURE IS NOT NULL AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(
+                ACTIVE_ROUTES_WHERE_CLAUSE
+            )
 
         elif check_description == 'ROUTE_QUALIFIER must be \'No Qualifier\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
             where_clause = (
                 '(ROUTE_QUALIFIER <> 10 OR ROUTE_QUALIFIER IS NULL) AND ' +
-                'ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
+                'ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_WHERE_CLAUSE)
             )
 
         elif check_description == 'PARKWAY_FLAG must be \'No\' when ROADWAY_TYPE in (\'Road\', \'Ramp\')':
-            where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_QUERY)
+            where_clause = 'PARKWAY_FLAG = \'T\' AND ROADWAY_TYPE IN (1, 2) AND ({})'.format(ACTIVE_ROUTES_WHERE_CLAUSE)
 
         else:
-            where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND ({})".format(ACTIVE_ROUTES_QUERY)
+            where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND ({})".format(ACTIVE_ROUTES_WHERE_CLAUSE)
 
         if base_where_clause:
             violations_where_clause = '({base_where}) AND ({validation_where})'.format(
@@ -156,7 +161,7 @@ def co_dir_sql_result_to_reviewer_table(result_list, versioned_layer, reviewer_w
         where_clause += 'DOT_ID = \'{dot_id}\' AND COUNTY_ORDER = \'{county_order}\' AND ({active_routes}) OR '.format(
             dot_id=dot_id,
             county_order=county_order,
-            active_routes=ACTIVE_ROUTES_QUERY
+            active_routes=ACTIVE_ROUTES_WHERE_CLAUSE
         )
     # Remove the extra ' OR ' from the where_clause from the last iteration
     where_clause = where_clause[:-4]
@@ -230,7 +235,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
     dot_ids = ['' if dot_id is None else dot_id for dot_id in dot_ids]
 
     # Select the DOT_IDs identified above on the active route data
-    where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "') AND ({})".format(ACTIVE_ROUTES_QUERY)
+    where_clause = "DOT_ID IN ('" + "', '".join(dot_ids) + "') AND ({})".format(ACTIVE_ROUTES_WHERE_CLAUSE)
     arcpy.SelectLayerByAttribute_management(
         versioned_layer,
         'NEW_SELECTION',
@@ -266,7 +271,7 @@ def rdwy_attrs_sql_result_to_reviewer_table(result_list, versioned_layer, review
         if row[0] == 1
     ]
 
-    output_where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND ({})".format(ACTIVE_ROUTES_QUERY)
+    output_where_clause = "ROUTE_ID IN ('" + "', '".join(route_ids) + "') AND ({})".format(ACTIVE_ROUTES_WHERE_CLAUSE)
 
     utils.log_it('{}: SQL Results where_clause: {}'.format(log_name, output_where_clause),
         level='info', logger=logger, arcpy_messages=arcpy_messages)
