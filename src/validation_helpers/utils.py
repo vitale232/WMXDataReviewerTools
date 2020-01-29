@@ -5,7 +5,7 @@ import time
 
 import arcpy
 
-from validation_helpers.active_routes import ACTIVE_ROUTES_QUERY
+from validation_helpers.config import LRSN_FC_WILDCARD
 
 
 class VersionDoesNotExistError(Exception):
@@ -22,6 +22,7 @@ class NoReviewerSessionIDError(Exception):
     Data Reviewer workspace tables.
     """
     pass
+
 
 def get_lockroot_version(production_ws, version_name, lockroot_version_name='ELRS.Lockroot'):
     """
@@ -85,7 +86,7 @@ def check_for_version(production_ws_version, production_ws, version_names=None):
     return True
 
 def get_version_milepoint_layer(production_ws, production_ws_version,
-                                wildcard='*LRSN_Milepoint',
+                                wildcard=LRSN_FC_WILDCARD,
                                 logger=None, arcpy_messages=None):
     """
     Get the name of the LRSN from the Roads and Highways ALRS using the wildcard keyward argument, and return

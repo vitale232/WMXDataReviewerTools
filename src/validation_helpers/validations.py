@@ -9,8 +9,14 @@ import arcpy
 
 import validation_helpers.utils as utils
 import validation_helpers.write as write
-
-from validation_helpers.active_routes import ACTIVE_ROUTES_QUERY
+from validation_helpers.config import (
+    ACTIVE_ROUTES_WHERE_CLAUSE,
+    DOMAIN,
+    EDITED_ROUTES_QUERY_FMT,
+    LRSN_FC_WILDCARD,
+    UNIQUE_RDWY_ATTRS_QUERY,
+    UNIQUE_CO_DIR_QUERY,
+)
 
 
 def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
@@ -99,14 +105,15 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             )
 
         if not full_db_flag:
-            # Filter out edits made by this user on this version since its creation
-            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND ({active_routes})'.format(
+            where_clause = EDITED_ROUTES_QUERY_FMT.format(
                 date=job__started_date,
-                user=user.upper(),
-                active_routes=ACTIVE_ROUTES_QUERY
+                user_upper=user.upper(),
+                user_lower=user.lower(),
+                domain=DOMAIN,
+                active_routes=ACTIVE_ROUTES_WHERE_CLAUSE
             )
         else:
-            where_clause = ACTIVE_ROUTES_QUERY
+            where_clause = ACTIVE_ROUTES_WHERE_CLAUSE
 
         utils.log_it(
             'Using where_clause to find recent edits of {} | where_clause: {}'.format(milepoint_fc, where_clause),
@@ -148,6 +155,7 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
             )
             utils.log_it('', level='gp', logger=logger, arcpy_messages=messages)
         else:
+            # When the full_db_flag is True, we'll validate the entire geographic extent of the LRSN feature class
             area_of_interest = arcpy.Describe(version_milepoint_layer).extent
 
         # Data Reviewer WMX tokens are only supported in the default DR Step Types. We must back out
@@ -175,7 +183,10 @@ def run_batch_on_buffered_edits(reviewer_ws, batch_job_file,
         utils.log_it('', level='gp', logger=logger, arcpy_messages=messages)
 
         try:
-            # Try to cleanup the runtime environment
+            # Try to cleanup the runtime environment. This was put in place to address an issue where WMX was holding
+            # on to database connections, which meant that a job could not be closed if this tool had executed
+            # until WMX is restarted. Since this code causes no harm to anything except our expectations of Python code
+            # syntax, I've opted to leave it
             arcpy.CheckInExtension('datareviewer')
             arcpy.env.workspace = r'in_memory'
             fcs = arcpy.ListFeatureClasses()
@@ -259,29 +270,6 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         # These are the sql queries that need to be run against the full Milepoint table.
         arcpy.CheckOutExtension('datareviewer')
 
-        unique_rdwy_attrs_sql= (
-            'SELECT DOT_ID, COUNTY_ORDER, ' +
-                'COUNT (DISTINCT CONCAT(SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ' +
-                'ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG)) ' +
-            'FROM ELRS.elrs.LRSN_Milepoint_evw ' +
-            'WHERE ' +
-                '(FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND ' +
-                '(TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP) ' +
-            'GROUP BY DOT_ID, COUNTY_ORDER ' +
-            'HAVING COUNT (DISTINCT CONCAT(SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ' +
-            'ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG))>1;'
-        )
-
-        unique_co_dir_sql = (
-            'SELECT DOT_ID, COUNTY_ORDER, DIRECTION, COUNT (1) ' +
-            'FROM ELRS.elrs.LRSN_Milepoint_evw ' +
-            'WHERE ' +
-                '(FROM_DATE IS NULL OR FROM_DATE <= CURRENT_TIMESTAMP) AND ' +
-                '(TO_DATE IS NULL OR TO_DATE >= CURRENT_TIMESTAMP) ' +
-            'GROUP BY DOT_ID, COUNTY_ORDER, DIRECTION ' +
-            'HAVING COUNT (1)>1;'
-        )
-
         utils.log_it(('Calling run_sql_validations(): Running SQL queries against the ' +
             'ELRS in HDS_GENERAL_EDITING_JOB_{} and writing '.format(job__id)) +
             'results to Data Reviewer session',
@@ -318,13 +306,13 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
             level='debug', logger=logger, arcpy_messages=messages)
         connection.execute(change_versioned_view_sql)
 
-        utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=unique_rdwy_attrs_sql),
+        utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=UNIQUE_RDWY_ATTRS_QUERY),
             level='debug', logger=logger, arcpy_messages=messages)
-        unique_rdwy_attrs_result = connection.execute(unique_rdwy_attrs_sql)
+        unique_rdwy_attrs_result = connection.execute(UNIQUE_RDWY_ATTRS_QUERY)
 
-        utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=unique_co_dir_sql),
+        utils.log_it('Calling SQL Query on database connection: "{sql}"'.format(sql=UNIQUE_CO_DIR_QUERY),
             level='debug', logger=logger, arcpy_messages=messages)
-        unique_co_dir_result = connection.execute(unique_co_dir_sql)
+        unique_co_dir_result = connection.execute(UNIQUE_CO_DIR_QUERY)
 
         # Try changing the connection/versioned view back to Lockroot to release locks on the edit version for WMX
         try:
@@ -344,7 +332,7 @@ def run_sql_validations(reviewer_ws, production_ws, job__id,
         if len(unique_rdwy_attrs_result) > 0 or len(unique_co_dir_result) > 0:
             # Create a versioned arcpy feature layer of the Milepoint feature class
             if not milepoint_fc:
-                milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses('*LRSN_Milepoint')]
+                milepoint_fcs = [fc for fc in arcpy.ListFeatureClasses(LRSN_FC_WILDCARD)]
                 if len(milepoint_fcs) == 1:
                     milepoint_fc = milepoint_fcs[0]
                 else:
@@ -532,8 +520,8 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         #  validate_county_order_value while looping through the validation features
         dot_id_routes = dict()
         fields = ['DOT_ID', 'COUNTY_ORDER', 'ROUTE_ID', 'DIRECTION']
-        with arcpy.da.SearchCursor(version_milepoint_layer, fields, where_clause=ACTIVE_ROUTES_QUERY) as id_cursor:
-            for row in id_cursor:
+        with arcpy.da.SearchCursor(version_milepoint_layer, fields, where_clause=ACTIVE_ROUTES_WHERE_CLAUSE) as id_curs:
+            for row in id_curs:
                 dot_id, county_order, route_id, direction = row
                 try:
                     if county_order is None:
@@ -550,12 +538,14 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         #  Otherwise, follow the typical pattern of selecting the data edited by this user
         #  in this version since it was created.
         if full_db_flag:
-            where_clause = ACTIVE_ROUTES_QUERY
+            where_clause = ACTIVE_ROUTES_WHERE_CLAUSE
         else:
-            where_clause = 'EDITED_DATE >= \'{date}\' AND EDITED_BY = \'{user}\' AND ({active_routes})'.format(
+            where_clause = EDITED_ROUTES_QUERY_FMT.format(
                 date=job__started_date,
-                user=user.upper(),
-                active_routes=ACTIVE_ROUTES_QUERY
+                user_upper=user.upper(),
+                user_lower=user.lower(),
+                domain=DOMAIN,
+                active_routes=ACTIVE_ROUTES_WHERE_CLAUSE
             )
         utils.log_it('Using where_clause to find recent edits of {}: {}'.format(milepoint_fc, where_clause),
             level='debug', logger=logger, arcpy_messages=messages)
@@ -666,7 +656,7 @@ def run_roadway_level_attribute_checks(reviewer_ws, production_ws, job__id,
         return True
 
 def validate_county_order_value(dot_id_routes, dot_id, direction,
-                                active_routes_where_clause=ACTIVE_ROUTES_QUERY,
+                                active_routes_where_clause=ACTIVE_ROUTES_WHERE_CLAUSE,
                                 logger=None, arcpy_messages=None):
     """
     This function ensures that COUNTY_ORDER values are valid for the validated route's DOT_ID.
