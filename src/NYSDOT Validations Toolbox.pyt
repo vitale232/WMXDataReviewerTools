@@ -1,10 +1,4 @@
-from collections import defaultdict
-import datetime
 import logging
-import os
-import re
-import time
-import traceback
 
 import arcpy
 
