@@ -50,7 +50,7 @@ These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCata
 | batch_job_file | Path to a file with .rbj extension, which is a Reviewer Batch Job created in ArcMap |
 | full_db_flag | If True, the filtering described in the first two rows is disregarded and all active features are validated |
 
-As an example, let's say the user `SVC\jdoe` has created a new Workflow Manager General Editing Job and conducted some Roads and Highways edits within the new version. The job was created on `11/1/2019` and assigned the system generated ID `30063`. J. Doe would like to validate those edits by running `Execute All Validations`. They would populate the tool's UI as follows:
+As an example, let's say the user `SVC\jdoe` has created a new Workflow Manager General Editing Job and conducted some Roads and Highways edits within the new version. The job was created on `2/29/2020` and assigned the system generated ID `23232`. J. Doe would like to validate those edits by running `Execute All Validations`. They would populate the tool's UI as follows:
 
 ![Execute All Validations UI Screenshot](./docs/img/tool_screeshot.PNG?raw=true "Execute All Validations UI")
 
