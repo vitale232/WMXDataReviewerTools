@@ -52,7 +52,7 @@ These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCata
 
 As an example, let's say the user `SVC\jdoe` has created a new Workflow Manager General Editing Job and conducted some Roads and Highways edits within the new version. The job was created on `2/29/2020` and assigned the system generated ID `23232`. J. Doe would like to validate those edits by running `Execute All Validations`. They would populate the tool's UI as follows:
 
-![Execute All Validations UI Screenshot](./docs/img/tool_screeshot.PNG?raw=true "Execute All Validations UI")
+![Execute All Validations UI Screenshot](./docs/img/tool_screenshot.PNG?raw=true "Execute All Validations UI")
 
 # Validations
 ## Reviewer Batch Job
@@ -60,7 +60,9 @@ A [Reviewer Batch Job](https://desktop.arcgis.com/en/arcmap/10.5/extensions/data
 
 The Reviewer Batch Job portion of the WMXDataReviewer Tools is the most malleable/easily-extensible part of the validation workflow. Any user can go into ArcMap, load the correct data, and generate an RBJ to their specifications. The RBJ can then be fed into the tools via Workflow Manager or ad-hoc execution. Additionally, these tools are not required to run RBJ validations. However, Data Reviewer's Workflow Manager integration provides limited options for which features are input into an RBJ. Since running the RBJ on the entire LRS network is time consuming and overwhelms the user with results, this toolbox helps by selecting only the user's edits. When the edits are buffered, the buffer polygon can be fed into the Data Reviewer Execute Reviewer Batch Job GP tool, which will select all intersecting features.
 
-Here is a list of the checks that are currently included in the [RBJ](https://github.com/vitale232/WMXDataReviewerTools/blob/master/Reviewer_Batch_Jobs/RoutesInternalEventsValidations.rbj):
+RBJ files are text files in an XML format. This is convenient in that it allows these files to be committed and tracked via source control. However, XML is awful to try and read. You'll need to use the Data Reviewer Toolbar in ArcGIS Desktop to view and edit the RBJ files. Specifically, you'll want to use the Reviewer Batch Job Manager tool from the Data Reviewer toolbar. Learn more about [RBJs in the Esri docs](https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm)
+
+Here is a list of the checks that are currently included in the [RBJ](https://github.com/vitale232/WMXDataReviewerTools/blob/master/rbj/RoutesInternalEventsValidations.rbj):
 
 ### Centerline Checks
 | Check Title                         | DR Check Type           | Where Clause                                                                     | Additional Parameters |
@@ -181,6 +183,7 @@ The tool requires that all users have an SDE file in the ArcCatalog Database Con
 | job__owned_by | [JOB:OWNED_BY] |
 | job__id | [JOB:ID] |
 | production_ws | Database Connections\dev_elrs_ad_Lockroot.sde |
+| production_ws_version | ELRS.Lockroot |
 | reviewer_ws | Database Connections\dev_elrs_datareviewer_dr_user.sde |
 | log_path |  |
 | log_level | DEBUG |
@@ -190,6 +193,49 @@ The tool requires that all users have an SDE file in the ArcCatalog Database Con
 *The parameters of the form [JOB:FOOBAR] refer to [Workflow Manager Tokens](https://desktop.arcgis.com/en/arcmap/10.5/extensions/workflow-manager/tokens.htm)*
 
 Once the `Launch` or `Execute GP Tool` steps have been established, they can be dropped into a Workflow using Workflow Manager Administrator. The Workflow can then be assigned to a Job Type, which will allow users to create reproducible workflows on their own.
+
+# Current Deployments
+This repository is currently being used in two environments at NYSDOT. The separate environments are managed using branches in this git repository. The two environments (updated 2020-02-28) are currently the ELRS Dev environment and the temporary ELRS Prod environemnt.
+
+## ELRS Dev
+The ELRS Dev environment is the current development environment for the full NYSDOT R&H deployment. This environment includes the entirety of NYSDOT's roadway inventory as internal events, and it can successfully sync external events to the AgileAssets system.
+
+The ELRS Dev environment codebase lives in the **master** branch of this repository. To ensure you are currently on **master**, you should install a git command line interface, navigate to the root of this repository, and run the following command:
+
+```shell
+git status
+```
+
+If you are on a different branch, run the following command to switch to the master branch:
+
+```shell
+git checkout -b master
+```
+
+## Temporary Production
+There was a partial migration of some select inventory elements to the NYSDOT production R&H environment to support applications deployed in some of NYSDOT's Divisions. These internal events are not actively maintained, but rather a stop-gap measure to ensure the other production systems can get the required data.
+
+The Temporary Production environment has a different data model than ELRS Dev, thus the validations in Temp Prod are currently widdled back dramatically. The Workflow Manager Workflow in temporary prod runs the `Execute Reviewer Batch Job on R&H Edits` tool on the user's version, rather than the `Execute All Validations` tool as explained in other sections of this document.
+
+Further, the RBJ file has been slightly modified to ensure it will work with the temporary prod environment. Rather than using the standard `RoutesInternalEventsValidations.rbj` file, the temporary prod deployment uses the [`TemporaryProdValidations.rbj` file](https://github.com/vitale232/WMXDataReviewerTools/blob/master/rbj/TemporaryProdRoutesValidations.rbj).
+
+The Temporary Prod codebase lives in the **temp-prod** branch of this repository. To ensure you are currently on **temp-prod**, you should install a git command line interface, navigate to the root of this repository, and run the following command:
+
+```shell
+git status
+```
+
+If you are on a different branch, run the following command to switch to the master branch:
+
+```shell
+git checkout -b temp-prod
+```
+
+## Managing Deployments
+The easiest way to manage separate deployments is using git. This repository can be cloned onto the P drive, then you can create a new branch if required, switch to an existing branch, update the code to suit your needs, and commit the changes back to the repository. To create a new deployment, simply navigate to the folder you want to save the codebase to and run the following command:
+```shell
+git clone https://github.com/vitale232/WMXDataReviewerTools.git
+```
 
 ## Development Notes
 + With much of the code living in a Python package called validation_helpers, it's hard to get ArcGIS to consistently update the tool. Just open a blank map document with the Data Reviewer extension activated whenever you'd like to test code changes.
