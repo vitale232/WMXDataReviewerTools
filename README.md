@@ -206,7 +206,7 @@ The ELRS Dev environment codebase lives in the **master** branch of this reposit
 git status
 ```
 
-If you are on a different branch, run the following command to switch to the master branch:
+If you are on a different branch, run the following command to switch to the **master** branch:
 
 ```shell
 git checkout -b master
@@ -225,7 +225,7 @@ The Temporary Prod codebase lives in the **temp-prod** branch of this repository
 git status
 ```
 
-If you are on a different branch, run the following command to switch to the master branch:
+If you are on a different branch, run the following command to switch to the **temp-prod** branch:
 
 ```shell
 git checkout -b temp-prod
