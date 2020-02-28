@@ -1,7 +1,7 @@
 
     <html>
       <head>
-        <title>NYSDOT Validations Toolbox README</title>
+        <title>NYSDOT Validations Toolbox Readme</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
       </head>
       <body>
@@ -13,9 +13,9 @@
 <p>The toolbox consists of four tools: <br><br />
 <img src="./docs/img/expanded_toolbox.PNG?raw=true" alt="Expanded toolbox screenshot" title="NYSDOT Validations Toolbox" /></p>
 <h4 id="1-execute-reviewer-batch-job-rbj-on-rh-edits">1. Execute Reviewer Batch Job (RBJ) on R&amp;H Edits</h4>
-<p>This tool elects the edits made by a specific user since a specific date (using the <code>EDITED_BY</code> and <code>EDITED_DATE</code> columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This geoprocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job.</p>
+<p>This tool selects the edits made by a specific user since a specific date (using the <code>EDITED_BY</code> and <code>EDITED_DATE</code> columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This geoprocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job.</p>
 <p><img src="./docs/img/intersection_map.PNG?raw=true" alt="RBJ Buffer Intersection figure" title="RBJ Feature Selection Diagram" /><br />
-In the above figure, the yellow route was edited by the current user in the current WMX job. The rose colored polygon represents the 10 meter buffer that is created while executing the <code>Execute Reviewer Batch Job on R&amp;H Tool</code> from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram. The black routes will not be validated.</p>
+In the above figure, the yellow route was edited by the current user in the current WMX job. The blue colored polygon represents the 10 meter buffer that is created while executing the <code>Execute Reviewer Batch Job on R&amp;H Tool</code> from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram. The black routes will not be validated.</p>
 <h4 id="2-execute-roadway-level-attribute-validations">2. Execute Roadway Level Attribute Validations</h4>
 <p>This tool selects the edits made by a specific user since a specific date (using the <code>EDITED_BY</code> and <code>EDITED_DATE</code> columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include "Local Roads should not have a <code>ROUTE_NUMBER</code>", "<code>COUNTY_ORDER</code> should be a series of numbers incrementing by a value of one on a <code>DOT_ID</code>", the "<code>ROUTE_SUFFIX</code> of a <code>ROADWAY_TYPE=Route</code> must be <code>None</code>", and many other validations. View the <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/8609446d86f925b3509bd95330c7b780e7c4868f/NYSDOT_Validations_Toolbox/validation_helpers/validations.py#L420">source code</a> or the <a href="#roadway-level-attribute-checks">table below</a> for a complete list.</p>
 <h4 id="3-execute-sql-validations-against-network">3. Execute SQL Validations Against Network</h4>
@@ -59,6 +59,10 @@ In the above figure, the yellow route was edited by the current user in the curr
 <td>SDE file pointing to the R&amp;H geodatabase</td>
 </tr>
 <tr>
+<td>production_ws_version</td>
+<td>A string. Value must be one of "ELRS.Lockroot" or "Edit Version". It is suggested to use ELRS.Lockroot for better Data Reviewer exception management. The database version name is stored in the reviewer workspace for each record, thus running all validations on Lockroot helps to ensure Data Reviewer will recognize duplicates. If you validate the edit version, the Version name will be in the Reviewer record. Since the version name will always be different, DR will not recognize the records as duplicates.</td>
+</tr>
+<tr>
 <td>reviewer_ws</td>
 <td>SDE file or file geodatabase for the Data Reviewer results</td>
 </tr>
@@ -80,13 +84,14 @@ In the above figure, the yellow route was edited by the current user in the curr
 </tr>
 </tbody>
 </table>
-<p>As an example, let's say the user <code>SVC\jdoe</code> has created a new Workflow Manager General Editing Job and conducted some Roads and Highways edits within the new version. The job was created on <code>11/1/2019</code> and assigned the system generated ID <code>30063</code>. J. Doe would like to validate those edits by running <code>Execute All Validations</code>. They would populate the tool's UI as follows:</p>
-<p><img src="./docs/img/tool_screeshot.PNG?raw=true" alt="Execute All Validations UI Screenshot" title="Execute All Validations UI" /></p>
+<p>As an example, let's say the user <code>SVC\jdoe</code> has created a new Workflow Manager General Editing Job and conducted some Roads and Highways edits within the new version. The job was created on <code>2/29/2020</code> and assigned the system generated ID <code>23232</code>. J. Doe would like to validate those edits by running <code>Execute All Validations</code>. They would populate the tool's UI as follows:</p>
+<p><img src="./docs/img/tool_screenshot.PNG?raw=true" alt="Execute All Validations UI Screenshot" title="Execute All Validations UI" /></p>
 <h1 id="validations">Validations</h1>
 <h2 id="reviewer-batch-job">Reviewer Batch Job</h2>
 <p>A <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm">Reviewer Batch Job</a> is created using ArcGIS Desktop. Esri provides pre-programmed routines that search for hard-to-see errors in your data. Common examples are <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/finding-dangles-on-line-features.htm">"dangles"</a> (i.e. polylines that almost connect and probably were intended to connect) and <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/checking-cutbacks-in-lines-and-polygons.htm">"cutbacks"</a> (i.e. the digitizer accidentally put a z shape into the polyline vertices).</p>
 <p>The Reviewer Batch Job portion of the WMXDataReviewer Tools is the most malleable/easily-extensible part of the validation workflow. Any user can go into ArcMap, load the correct data, and generate an RBJ to their specifications. The RBJ can then be fed into the tools via Workflow Manager or ad-hoc execution. Additionally, these tools are not required to run RBJ validations. However, Data Reviewer's Workflow Manager integration provides limited options for which features are input into an RBJ. Since running the RBJ on the entire LRS network is time consuming and overwhelms the user with results, this toolbox helps by selecting only the user's edits. When the edits are buffered, the buffer polygon can be fed into the Data Reviewer Execute Reviewer Batch Job GP tool, which will select all intersecting features.</p>
-<p>Here is a list of the checks that are currently included in the <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/master/Reviewer_Batch_Jobs/RoutesInternalEventsValidations.rbj">RBJ</a>:</p>
+<p>RBJ files are text files in an XML format. This is convenient in that it allows these files to be committed and tracked via source control. However, XML is awful to try and read. You'll need to use the Data Reviewer Toolbar in ArcGIS Desktop to view and edit the RBJ files. Specifically, you'll want to use the Reviewer Batch Job Manager tool from the Data Reviewer toolbar. Learn more about <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm">RBJs in the Esri docs</a></p>
+<p>Here is a list of the checks that are currently included in the <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/master/rbj/RoutesInternalEventsValidations.rbj">RBJ</a>:</p>
 <h3 id="centerline-checks">Centerline Checks</h3>
 <table>
 <thead>
@@ -506,6 +511,10 @@ HAVING COUNT (1)&gt;1
 <td>Database Connections\dev_elrs_ad_Lockroot.sde</td>
 </tr>
 <tr>
+<td>production_ws_version</td>
+<td>ELRS.Lockroot</td>
+</tr>
+<tr>
 <td>reviewer_ws</td>
 <td>Database Connections\dev_elrs_datareviewer_dr_user.sde</td>
 </tr>
@@ -529,6 +538,30 @@ HAVING COUNT (1)&gt;1
 </table>
 <p><em>The parameters of the form [JOB:FOOBAR] refer to <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/workflow-manager/tokens.htm">Workflow Manager Tokens</a></em></p>
 <p>Once the <code>Launch</code> or <code>Execute GP Tool</code> steps have been established, they can be dropped into a Workflow using Workflow Manager Administrator. The Workflow can then be assigned to a Job Type, which will allow users to create reproducible workflows on their own.</p>
+<h1 id="current-deployments">Current Deployments</h1>
+<p>This repository is currently being used in two environments at NYSDOT. The separate environments are managed using branches in this git repository. The two environments (updated 2020-02-28) are currently the ELRS Dev environment and the temporary ELRS Prod environemnt.</p>
+<h2 id="elrs-dev">ELRS Dev</h2>
+<p>The ELRS Dev environment is the current development environment for the full NYSDOT R&amp;H deployment. This environment includes the entirety of NYSDOT's roadway inventory as internal events, and it can successfully sync external events to the AgileAssets system.</p>
+<p>The ELRS Dev environment codebase lives in the <strong>master</strong> branch of this repository. To ensure you are currently on <strong>master</strong>, you should install a git command line interface, navigate to the root of this repository, and run the following command:</p>
+<pre><code class="shell language-shell">git status
+</code></pre>
+<p>If you are on a different branch, run the following command to switch to the master branch:</p>
+<pre><code class="shell language-shell">git checkout -b master
+</code></pre>
+<h2 id="temporary-production">Temporary Production</h2>
+<p>There was a partial migration of some select inventory elements to the NYSDOT production R&amp;H environment to support applications deployed in some of NYSDOT's Divisions. These internal events are not actively maintained, but rather a stop-gap measure to ensure the other production systems can get the required data.</p>
+<p>The Temporary Production environment has a different data model than ELRS Dev, thus the validations in Temp Prod are currently widdled back dramatically. The Workflow Manager Workflow in temporary prod runs the <code>Execute Reviewer Batch Job on R&amp;H Edits</code> tool on the user's version, rather than the <code>Execute All Validations</code> tool as explained in other sections of this document.</p>
+<p>Further, the RBJ file has been slightly modified to ensure it will work with the temporary prod environment. Rather than using the standard <code>RoutesInternalEventsValidations.rbj</code> file, the temporary prod deployment uses the <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/master/rbj/TemporaryProdRoutesValidations.rbj"><code>TemporaryProdValidations.rbj</code> file</a>.</p>
+<p>The Temporary Prod codebase lives in the <strong>temp-prod</strong> branch of this repository. To ensure you are currently on <strong>temp-prod</strong>, you should install a git command line interface, navigate to the root of this repository, and run the following command:</p>
+<pre><code class="shell language-shell">git status
+</code></pre>
+<p>If you are on a different branch, run the following command to switch to the master branch:</p>
+<pre><code class="shell language-shell">git checkout -b temp-prod
+</code></pre>
+<h2 id="managing-deployments">Managing Deployments</h2>
+<p>The easiest way to manage separate deployments is using git. This repository can be cloned onto the P drive, then you can create a new branch if required, switch to an existing branch, update the code to suit your needs, and commit the changes back to the repository. To create a new deployment, simply navigate to the folder you want to save the codebase to and run the following command:</p>
+<pre><code class="shell language-shell">git clone https://github.com/vitale232/WMXDataReviewerTools.git
+</code></pre>
 <h2 id="development-notes">Development Notes</h2>
 <ul>
 <li>With much of the code living in a Python package called validation_helpers, it's hard to get ArcGIS to consistently update the tool. Just open a blank map document with the Data Reviewer extension activated whenever you'd like to test code changes.</li>
