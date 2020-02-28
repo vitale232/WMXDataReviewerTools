@@ -159,14 +159,14 @@ class SupplementalParameters:
 
     Example
     -------
-    >>> class FakeToolForToolbox(NYSDOTValidationsMixin, object):
+    >>> class FooToolForBarBox(NYSDOTValidationsMixin, object):
     >>>     def getParameterInfo(self):
     >>>         params = super(ExecuteReviewerBatchJobOnEdits, self).getParameterInfo()
     >>>         
     >>>         supplemental_params = SupplementalParameters()
     >>>         full_db_flag_param = supplemental_params.full_db_flag_param
     >>>         
-    >>>         return [ supplemental_params, full_db_flag_param ]
+    >>>         return params + [ full_db_flag_param ]
     """
     full_db_flag_param = arcpy.Parameter(
             displayName='Run Validations on Full Geodatabase (Instead of edits)',
