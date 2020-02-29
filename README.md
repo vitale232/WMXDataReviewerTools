@@ -8,7 +8,7 @@ The toolbox consists of four tools: <br>
 ![Expanded toolbox screenshot](./docs/img/expanded_toolbox.PNG?raw=true "NYSDOT Validations Toolbox")
 
 #### 1. Execute Reviewer Batch Job (RBJ) on R&H Edits
-This tool selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This geoprocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job.
+This tool selects the edits made by a specific user since a specific date (using the `EDITED_BY` and `EDITED_DATE` columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This geoprocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job. View the [table below](#reviewer-batch-job) for a detailed list of validations that are in the current RBJ.
 
 ![RBJ Buffer Intersection figure](./docs/img/intersection_map.PNG?raw=true "RBJ Feature Selection Diagram")
 In the above figure, the yellow route was edited by the current user in the current WMX job. The blue colored polygon represents the 10 meter buffer that is created while executing the `Execute Reviewer Batch Job on R&H Tool` from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram. The black routes will not be validated.
@@ -41,8 +41,8 @@ These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCata
 | ----------- | ----------- |
 | job__started_date | The Milepoint feature class will be filtered with EDITED_DATE >= job__started_date |
 | job__owned_by | The Milepoint feature class will be filtered with EDITED_BY = job__owned_by |
-| job__id | The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC\{job__owned_by.upper()}".HDS_GENERAL_EDITING_JOB_{job__id}, where .upper() indicates all capital letters and job__id will correspond with the Workflow Manager Job ID |
-| production_ws | SDE file pointing to the R&H geodatabase |
+| job__id | The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC\{job__owned_by.upper()}".HDS_GENERAL_EDITING_JOB_{job__id}, where .upper() indicates all capital letters and job__id will correspond with the Workflow Manager Job ID. The Job ID is also used by Data Reviewer when naming a Reviewer Session that is created in the workflow. The DR Session will typically have a name like `Session 23 : 23232`. |
+| production_ws | SDE file pointing to the R&H ELRS geodatabase |
 | production_ws_version | A string. Value must be one of "ELRS.Lockroot" or "Edit Version". It is suggested to use ELRS.Lockroot for better Data Reviewer exception management. The database version name is stored in the reviewer workspace for each record, thus running all validations on Lockroot helps to ensure Data Reviewer will recognize duplicates. If you validate the edit version, the Version name will be in the Reviewer record. Since the version name will always be different, DR will not recognize the records as duplicates. |
 | reviewer_ws | SDE file or file geodatabase for the Data Reviewer results |
 | log_path | If a log file is desired, it must have a .txt extension |
@@ -212,6 +212,10 @@ If you are on a different branch, run the following command to switch to the **m
 git checkout -b master
 ```
 
+The ELRS Dev deployment uses a SQL Server SDE database for the Data Reviewer results. This means that all users will be writing their validations to the same geodatabase.
+
+Since Roads and Highways supports route shapes that are considered invalid by the [OGC](https://www.ogc.org/), these routes will trigger validations in Data Reviewer (e.g. Invalid Shape, Duplicate Vertices). As NYSDOT upgrades to 10.7.1, we should consider a mechanism to share DR exceptions across users of the SDE DR Workspace. As it's currently configured, DR checks for duplicates in the current session. If we were to extend the workflow to delete all validations that were marked as fixed or unaddressed by the user, leaving only the exceptions behind, we can reconfigure DR to search for duplicates across the full database. This workflow would mean that if user `SVC\jdoe` marked a route as an exception, which was then revalidated by user `SVC\jdoe2`, it would not be presented as an error to `SVC\jdoe2`. The Data Reviewer team has developed geoprocessing tools that can support this workflow, but they only work up to ArcGIS 10.6. Esri has committed to updating [these tools](https://community.esri.com/thread/153340), so we'll need to keep an eye out for the updated package and test this workflow once we're on Desktop 10.7.1.
+
 ## Temporary Production
 There was a partial migration of some select inventory elements to the NYSDOT production R&H environment to support applications deployed in some of NYSDOT's Divisions. These internal events are not actively maintained, but rather a stop-gap measure to ensure the other production systems can get the required data.
 
@@ -230,6 +234,8 @@ If you are on a different branch, run the following command to switch to the **t
 ```shell
 git checkout -b temp-prod
 ```
+
+The temporary prod deployment uses a file geodatabase for each individual user to store the Data Reviewer results. The file geodatabase must be in a standard file location across all users' systems, so that WMX will be able to discover it. The file geodatabases are currently stored on the D:\ drive, which is a standard drive mapped on all DOT computers. Data Reviewer is configured to look for duplicates across the full database, so users will not see duplicates that they themselves have validated. However, since the file geodatabase is local to the user's machine, there is no knowledge of colleagues validations.
 
 ## Managing Deployments
 The easiest way to manage separate deployments is using git. This repository can be cloned onto the P drive, then you can create a new branch if required, switch to an existing branch, update the code to suit your needs, and commit the changes back to the repository. To create a new deployment, simply navigate to the folder you want to save the codebase to and run the following command:
