@@ -39,12 +39,20 @@ fs.readFile(__dirname + '/style.css', function (err, styleData) {
     html = preContent + converter.makeHtml(text) + postContent
 
     converter.setFlavor('github');
-    console.log(html);
 
     let filePath = resolve("../../README.html");
     fs.writeFile(filePath, html, { flag: "wx" }, function(err) {
       if (err) {
-        console.log("File '" + filePath + "' already exists. Aborted!");
+        console.log("File '" + filePath + "' already exists. Deleting!");
+        fs.unlinkSync(filePath);
+        fs.writeFile(filePath, html, { flag: "wx" }, function(err) {
+          if (err) {
+            console.log('Cannot delete file. An error occurred!');
+            console.error(err);
+          } else {
+            console.log('Done, saved to ' + filePath);
+          }
+        })
       } else {
         console.log("Done, saved to " + filePath);
       }
