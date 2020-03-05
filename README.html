@@ -1,7 +1,7 @@
 
     <html>
       <head>
-        <title>NYSDOT Validations Toolbox Readme</title>
+        <title>NYSDOT Validations Toolbox README</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
       </head>
       <body>
@@ -13,13 +13,13 @@
 <p>The toolbox consists of four tools: <br><br />
 <img src="./docs/img/expanded_toolbox.PNG?raw=true" alt="Expanded toolbox screenshot" title="NYSDOT Validations Toolbox" /></p>
 <h4 id="1-execute-reviewer-batch-job-rbj-on-rh-edits">1. Execute Reviewer Batch Job (RBJ) on R&amp;H Edits</h4>
-<p>This tool selects the edits made by a specific user since a specific date (using the <code>EDITED_BY</code> and <code>EDITED_DATE</code> columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This geoprocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job.</p>
+<p>This tool selects the edits made by a specific user since a specific date (using the <code>EDITED_BY</code> and <code>EDITED_DATE</code> columns on LRSN_Milepoint), buffers the edits by 10 meters, and executes a specified Reviewer Batch Job file against all features that intersect the buffer polygons. This geoprocessing workflow means that the RBJ will validate routes additional to the edits directly conducted in the current WMX job. View the <a href="#reviewer-batch-job">table below</a> for a detailed list of validations that are in the current RBJ.</p>
 <p><img src="./docs/img/intersection_map.PNG?raw=true" alt="RBJ Buffer Intersection figure" title="RBJ Feature Selection Diagram" /><br />
 In the above figure, the yellow route was edited by the current user in the current WMX job. The blue colored polygon represents the 10 meter buffer that is created while executing the <code>Execute Reviewer Batch Job on R&amp;H Tool</code> from this toolbox. When this polygon is passed into the Execute Reviewer Batch Job geoprocessing tool, it will validate the yellow route plus all of the red routes in this diagram. The black routes will not be validated.</p>
 <h4 id="2-execute-roadway-level-attribute-validations">2. Execute Roadway Level Attribute Validations</h4>
 <p>This tool selects the edits made by a specific user since a specific date (using the <code>EDITED_BY</code> and <code>EDITED_DATE</code> columns on LRSN_Milepoint) and runs them through a set of Python functions that validate specific data relationships. Examples include "Local Roads should not have a <code>ROUTE_NUMBER</code>", "<code>COUNTY_ORDER</code> should be a series of numbers incrementing by a value of one on a <code>DOT_ID</code>", the "<code>ROUTE_SUFFIX</code> of a <code>ROADWAY_TYPE=Route</code> must be <code>None</code>", and many other validations. View the <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/8609446d86f925b3509bd95330c7b780e7c4868f/NYSDOT_Validations_Toolbox/validation_helpers/validations.py#L420">source code</a> or the <a href="#roadway-level-attribute-checks">table below</a> for a complete list.</p>
 <h4 id="3-execute-sql-validations-against-network">3. Execute SQL Validations Against Network</h4>
-<p>These validations are executed against the entire LRSN_Milepoint table, validating only active routes. There are two <a href="#execute-sql-validations">SQL queries</a> that are executed as apart of this validation tool, one of which ensures there is only one combination of roadway-level attributes, the other of which ensures there is not more than one combination of <code>DOT_ID, COUNTY_ORDER, and DIRECTION</code>.</p>
+<p>These validations are executed against the entire LRSN_Milepoint table, validating only active routes. There are two <a href="#execute-sql-validations">SQL queries</a> that are executed as apart of this validation tool, one of which ensures there is only one combination of roadway-level attributes, the other of which ensures there is not more than one combination of <code>DOT_ID</code>, <code>COUNTY_ORDER</code>, and <code>DIRECTION</code>.</p>
 <h4 id="4-execute-all-validations">4. Execute All validations</h4>
 <p>This tool serves as a wrapper function for items 1 through 3 of these lists. The data flow of this tool requires the tools to be executed in the following order:</p>
 <ol>
@@ -29,11 +29,13 @@ In the above figure, the yellow route was edited by the current user in the curr
 </ol>
 <h1 id="execution">Execution</h1>
 <h2 id="workflow-manager">Workflow Manager</h2>
-<p>This toolbox is mainly designed to run within a Workflow Manager Workflow, which is called when a Workflow Manager Job is created by the user. The typical workflow will create a unique version for the user, create a corresponding Reviewer Workspace, launch ArcMap with the proper version and workspace so that the user can conduct their edits, launch this Python Toolbox as a geoprocessing tool, launch ArcMap again so the user can see the results of the validations, and finally close the version and the Workflow Manager job.</p>
+<p>This toolbox is mainly designed to run within a Workflow Manager Workflow, which is called when a Workflow Manager Job is created by the user. The typical workflow will create a unique database version for the user, create a corresponding Reviewer Workspace, launch ArcMap with the proper version and workspace so that the user can conduct their edits, launch this Python Toolbox as a geoprocessing tool, launch ArcMap again so the user can see the results of the validations, and finally close the version and the Workflow Manager job.</p>
 <p>In NYSDOT's current development workflow, the Execute All Validations tool is called. You can see the schematics of the workflow below:</p>
-<p><img src="./docs/img/workflow_diagram.PNG?raw=true" alt="Workflow Manager Workflow screenshot" title="Esri Workflow Manager (WMX) Workflow" /></p>
+<p><img src="./docs/img/workflow_diagram.PNG?raw=true" alt="Workflow Manager Workflow screenshot in development environment" title="Esri Workflow Manager (WMX) Workflow, Development Environment" /></p>
+<p>In NYSDOT's current Temporary Production workflow, Execute Reviewer Batch Job on R&amp;H edits is called. You can see the schematics of the workflow below:</p>
+<p><img src="./docs/img/workflow_diagram_TempProd.PNG?raw=true" alt="Workflow Manager Workflow screenshot in temporary production environment" title="Esri Workflow Manager (WMX) Workflow, Temporary Production Environment" /></p>
 <h2 id="ad-hoc">Ad-Hoc</h2>
-<p>These tools can be used in an ad-hoc basis from within ArcGIS Desktop or ArcCatalog. It's important to understand the input parameters for the tool prior to execution, as they're designed to be pre-populated by Workflow Manager. Higher level documentation can be viewed in the tool help, but here's a brief description:</p>
+<p>These tools can be used on an ad-hoc basis from within ArcGIS Desktop or ArcCatalog. It's important to understand the input parameters for the tool prior to execution, as they're designed to be pre-populated by Workflow Manager. Higher level documentation can be viewed in the tool help, but here's a brief description:</p>
 <table>
 <thead>
 <tr>
@@ -52,15 +54,15 @@ In the above figure, the yellow route was edited by the current user in the curr
 </tr>
 <tr>
 <td>job__id</td>
-<td>The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC{job__owned_by.upper()}".HDS_GENERAL_EDITING_JOB_{job__id}, where .upper() indicates all capital letters and job__id will correspond with the Workflow Manager Job ID</td>
+<td>The job__id will be used to construct the SDE version name for the edits. It assumes names like "SVC{job__owned_by.upper()}".HDS_GENERAL_EDITING_JOB_{job__id}, where .upper() indicates all capital letters and job__id will correspond with the Workflow Manager Job ID. The Job ID is also used by Data Reviewer when naming a Reviewer Session that is created in the workflow. The DR Session will typically have a name like <code>Session 23 : 23232</code>.</td>
 </tr>
 <tr>
 <td>production_ws</td>
-<td>SDE file pointing to the R&amp;H geodatabase</td>
+<td>SDE file pointing to the R&amp;H ELRS geodatabase</td>
 </tr>
 <tr>
 <td>production_ws_version</td>
-<td>A string. Value must be one of "ELRS.Lockroot" or "Edit Version". It is suggested to use ELRS.Lockroot for better Data Reviewer exception management. The database version name is stored in the reviewer workspace for each record, thus running all validations on Lockroot helps to ensure Data Reviewer will recognize duplicates. If you validate the edit version, the Version name will be in the Reviewer record. Since the version name will always be different, DR will not recognize the records as duplicates.</td>
+<td>A string. Value must be one of <code>ELRS.Lockroot</code> or <code>Edit Version (Determined from WMX Job ID)</code>. It is suggested to use <code>ELRS.Lockroot</code> for better Data Reviewer exception management. The database version name is stored in the reviewer workspace for each record, thus running all validations on Lockroot helps to ensure Data Reviewer will recognize duplicates. If you validate the edit version, the Version name will be in the Reviewer record. Since the version name will always be different, DR will not recognize the records as duplicates.</td>
 </tr>
 <tr>
 <td>reviewer_ws</td>
@@ -90,8 +92,8 @@ In the above figure, the yellow route was edited by the current user in the curr
 <h2 id="reviewer-batch-job">Reviewer Batch Job</h2>
 <p>A <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm">Reviewer Batch Job</a> is created using ArcGIS Desktop. Esri provides pre-programmed routines that search for hard-to-see errors in your data. Common examples are <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/finding-dangles-on-line-features.htm">"dangles"</a> (i.e. polylines that almost connect and probably were intended to connect) and <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/checking-cutbacks-in-lines-and-polygons.htm">"cutbacks"</a> (i.e. the digitizer accidentally put a z shape into the polyline vertices).</p>
 <p>The Reviewer Batch Job portion of the WMXDataReviewer Tools is the most malleable/easily-extensible part of the validation workflow. Any user can go into ArcMap, load the correct data, and generate an RBJ to their specifications. The RBJ can then be fed into the tools via Workflow Manager or ad-hoc execution. Additionally, these tools are not required to run RBJ validations. However, Data Reviewer's Workflow Manager integration provides limited options for which features are input into an RBJ. Since running the RBJ on the entire LRS network is time consuming and overwhelms the user with results, this toolbox helps by selecting only the user's edits. When the edits are buffered, the buffer polygon can be fed into the Data Reviewer Execute Reviewer Batch Job GP tool, which will select all intersecting features.</p>
-<p>RBJ files are text files in an XML format. This is convenient in that it allows these files to be committed and tracked via source control. However, XML is awful to try and read. You'll need to use the Data Reviewer Toolbar in ArcGIS Desktop to view and edit the RBJ files. Specifically, you'll want to use the Reviewer Batch Job Manager tool from the Data Reviewer toolbar. Learn more about <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm">RBJs in the Esri docs</a></p>
-<p>Here is a list of the checks that are currently included in the <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/master/rbj/RoutesInternalEventsValidations.rbj">RBJ</a>:</p>
+<p>RBJ files are text files in an XML format. These files are most easily read using the Data Reviewer Extension for ArcGIS. Specifically, you'll want to use the Reviewer Batch Job Manager tool from the Data Reviewer toolbar. Learn more about <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/data-reviewer/batch-jobs-and-data-reviewer.htm">RBJs in the Esri docs</a></p>
+<p>Here is a list of the checks that are currently included in the RBJ:</p>
 <h3 id="centerline-checks">Centerline Checks</h3>
 <table>
 <thead>
@@ -362,7 +364,7 @@ In the above figure, the yellow route was edited by the current user in the curr
 </table>
 <h2 id="roadway-level-attribute-checks">Roadway Level Attribute Checks</h2>
 <p>Roads and Highways provides dialog boxes for users to input roadway attributes. Many of these attributes are partially limited by the use of <a href="https://desktop.arcgis.com/en/arcmap/10.5/manage-data/geodatabases/an-overview-of-attribute-domains.htm">Esri Attribute Domains</a>. Domains do a good job of making sure the values lie within a specific set, however, they do not limit attributes based on the values of other attributes. Many of the fields in the LRSN_Milepoint table only apply to signed routes, which are indicated by <code>ROADWAY_TYPE=Route</code>. Other fields are assumed to be null when the <code>ROADWAY_TYPE=Road</code>. Further, some fields like <code>ROUTE_ID</code> and <code>DOT_ID</code> allow for freehand input, saving the input as string values to the database. These fields should be numeric in nature, so any alphabetical characters are invalid. Domains cannot account for this.</p>
-<p>The Roadway Level Attribute checks are managed in a <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/8609446d86f925b3509bd95330c7b780e7c4868f/NYSDOT_Validations_Toolbox/validation_helpers/validations.py#L420">Python function</a>. The relevant features are read from the LRSN_Milepoint table using <code>arcpy.da.SearchCursor</code>, and the attributes and ROADWAY_TYPE are passed into the function. The function checks for the following relationships:</p>
+<p>The Roadway Level Attribute checks are managed in a <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/8609446d86f925b3509bd95330c7b780e7c4868f/NYSDOT_Validations_Toolbox/validation_helpers/validations.py#L420">Python function</a>. The relevant features are read from the LRSN_Milepoint table using <code>arcpy.da.SearchCursor</code>, and the attributes and <code>ROADWAY_TYPE</code> are passed into the function. The function checks for the following relationships:</p>
 <table>
 <thead>
 <tr>
@@ -468,7 +470,7 @@ In the above figure, the yellow route was edited by the current user in the curr
 <h2 id="execute-sql-validations">Execute SQL Validations</h2>
 <p>The SQL Validations check the full LRSN_Milepoint table for some essential relationships. While these validations are partially redundant, they provide the added benefit of always validating the entire active route network. This is beneficial, as systems downstream of the R&amp;H interface rely on sound data quality.</p>
 <p>These validations are always run against a "Versioned View" of the data. The Esri SDE schema provides this database view so that you can execute SQL against different trees of the data. The version that the versioned view references is set with a stored database procedure. For example, you can see the Lockroot version in the versioned view by executing this SQL: <code>EXEC ELRS.sde.set_current_version "ELRS.Lockroot";</code>.</p>
-<p>The first SQL query ensures that there is only one combination of roadway level attributes. This is essential since the LRSN is split at county borders. Thus, downstream routes can easily fall out of sync. It examines the attributes <code>SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, AND PARKWAY_FLAG</code>, while paying no mind to the <code>DOT_ID, ROUTE_ID, and COUNTY_ORDER</code>:</p>
+<p>The first SQL query ensures that there is only one combination of roadway level attributes. This is essential since the LRSN is split at county borders. Thus, downstream routes can easily fall out of sync. It examines the attributes <code>SIGNING</code>, <code>ROUTE_NUMBER</code>, <code>ROUTE_SUFFIX</code>, <code>ROADWAY_TYPE</code>, <code>ROUTE_QUALIFIER</code>, <code>ROADWAY_FEATURE</code>, and <code>PARKWAY_FLAG</code>, while paying no mind to the <code>DOT_ID</code>, <code>ROUTE_ID</code>, and <code>COUNTY_ORDER</code>:</p>
 <pre><code class="SQL language-SQL">SELECT DOT_ID, COUNT (DISTINCT CONCAT(SIGNING, ROUTE_NUMBER, ROUTE_SUFFIX, ROADWAY_TYPE, ROUTE_QUALIFIER, ROADWAY_FEATURE, PARKWAY_FLAG))
 FROM ELRS.elrs.LRSN_Milepoint_evw
 WHERE (FROM_DATE IS NULL OR FROM_DATE &lt;= CURRENT_TIMESTAMP) AND (TO_DATE IS NULL OR TO_DATE &gt;= CURRENT_TIMESTAMP)
@@ -524,7 +526,7 @@ HAVING COUNT (1)&gt;1
 </tr>
 <tr>
 <td>log_level</td>
-<td>DEBUG</td>
+<td>INFO</td>
 </tr>
 <tr>
 <td>batch_job_file</td>
@@ -537,27 +539,79 @@ HAVING COUNT (1)&gt;1
 </tbody>
 </table>
 <p><em>The parameters of the form [JOB:FOOBAR] refer to <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/workflow-manager/tokens.htm">Workflow Manager Tokens</a></em></p>
-<p>Once the <code>Launch</code> or <code>Execute GP Tool</code> steps have been established, they can be dropped into a Workflow using Workflow Manager Administrator. The Workflow can then be assigned to a Job Type, which will allow users to create reproducible workflows on their own.</p>
+<p>Once the <code>Launch</code> or <code>Execute GP Tool</code> steps have been established, they can be dropped into a Workflow using Workflow Manager Administrator. The Workflow can then be assigned to a Job Type, which will allow users to create reproducible workflows on their own. <a href="https://desktop.arcgis.com/en/arcmap/10.5/extensions/workflow-manager/what-is-a-job-type-.htm">Learn more about WMX in the Esri documentation.</a></p>
 <h1 id="current-deployments">Current Deployments</h1>
-<p>This repository is currently being used in two environments at NYSDOT. The separate environments are managed using branches in this git repository. The two environments (updated 2020-02-28) are currently the ELRS Dev environment and the temporary ELRS Prod environemnt.</p>
+<p><em>This section of the README was updated on 2020 March 05.</em></p>
+<p>This repository is currently being used in two environments at NYSDOT. The separate environments are managed using branches in this git repository. The two environments are currently the ELRS Dev environment and the temporary ELRS Prod environemnt (ArcGIS/R&amp;H 10.5.1 with partial internal event migration to support OPPM).</p>
 <h2 id="elrs-dev">ELRS Dev</h2>
 <p>The ELRS Dev environment is the current development environment for the full NYSDOT R&amp;H deployment. This environment includes the entirety of NYSDOT's roadway inventory as internal events, and it can successfully sync external events to the AgileAssets system.</p>
 <p>The ELRS Dev environment codebase lives in the <strong>master</strong> branch of this repository. To ensure you are currently on <strong>master</strong>, you should install a git command line interface, navigate to the root of this repository, and run the following command:</p>
 <pre><code class="shell language-shell">git status
 </code></pre>
-<p>If you are on a different branch, run the following command to switch to the master branch:</p>
+<p>If you are on a different branch, run the following command to switch to the <strong>master</strong> branch:</p>
 <pre><code class="shell language-shell">git checkout -b master
 </code></pre>
+<p>The ELRS Dev deployment uses a SQL Server SDE database for the Data Reviewer results. This means that all users will be writing their validations to the same geodatabase.</p>
+<p>Since Roads and Highways supports route shapes that are considered invalid by the <a href="https://www.ogc.org/">OGC</a>, these routes will trigger validations in Data Reviewer (e.g. Invalid Shape, Duplicate Vertices). As NYSDOT upgrades to 10.7.1, we should consider a mechanism to share DR exceptions across users of the SDE DR Workspace. As it's currently configured, DR checks for duplicates in the current session. If we were to extend the workflow to delete all validations that were marked as fixed or unaddressed by the user, leaving only the exceptions behind, we can reconfigure DR to search for duplicates across the full database. This workflow would mean that if user <code>SVC\jdoe</code> marked a route as an exception, which was then revalidated by user <code>SVC\jdoe2</code>, it would not be presented as an error to <code>SVC\jdoe2</code>. The Data Reviewer team has developed geoprocessing tools that can support this workflow, but they only work up to ArcGIS 10.6. Esri has committed to updating <a href="https://community.esri.com/thread/153340">these tools</a>, so we'll need to keep an eye out for the updated package and test this workflow once we're on Desktop 10.7.1.</p>
 <h2 id="temporary-production">Temporary Production</h2>
 <p>There was a partial migration of some select inventory elements to the NYSDOT production R&amp;H environment to support applications deployed in some of NYSDOT's Divisions. These internal events are not actively maintained, but rather a stop-gap measure to ensure the other production systems can get the required data.</p>
 <p>The Temporary Production environment has a different data model than ELRS Dev, thus the validations in Temp Prod are currently widdled back dramatically. The Workflow Manager Workflow in temporary prod runs the <code>Execute Reviewer Batch Job on R&amp;H Edits</code> tool on the user's version, rather than the <code>Execute All Validations</code> tool as explained in other sections of this document.</p>
-<p>Further, the RBJ file has been slightly modified to ensure it will work with the temporary prod environment. Rather than using the standard <code>RoutesInternalEventsValidations.rbj</code> file, the temporary prod deployment uses the <a href="https://github.com/vitale232/WMXDataReviewerTools/blob/master/rbj/TemporaryProdRoutesValidations.rbj"><code>TemporaryProdValidations.rbj</code> file</a>.</p>
+<p>Further, the RBJ file has been slightly modified to ensure it will work with the temporary prod environment. Rather than using the standard <code>RoutesInternalEventsValidations.rbj</code> file, the temporary prod deployment uses the <code>TemporaryProdValidations.rbj</code> file.</p>
 <p>The Temporary Prod codebase lives in the <strong>temp-prod</strong> branch of this repository. To ensure you are currently on <strong>temp-prod</strong>, you should install a git command line interface, navigate to the root of this repository, and run the following command:</p>
 <pre><code class="shell language-shell">git status
 </code></pre>
-<p>If you are on a different branch, run the following command to switch to the master branch:</p>
+<p>If you are on a different branch, run the following command to switch to the <strong>temp-prod</strong> branch:</p>
 <pre><code class="shell language-shell">git checkout -b temp-prod
 </code></pre>
+<p>The temporary prod deployment uses a file geodatabase for each individual user to store the Data Reviewer results. The file geodatabase must be in a standard file location across all users' systems, so that WMX will be able to discover it. The file geodatabases are currently stored on the D:\ drive, which is a standard drive mapped on all DOT computers. Data Reviewer is configured to look for duplicates across the full database, so users will not see duplicates that they themselves have validated. However, since the file geodatabase is local to the user's machine, there is no knowledge of colleagues validations.</p>
+<h3 id="temporary-prod-workflow-manager-launch-gp-tool-step-parameters">Temporary Prod Workflow Manager Launch GP Tool Step Parameters</h3>
+<p>Temporary prod requires a slightly different configuration in the Workflow Manager Launch GP Tool Step. The configuration should be as follows:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter Name</th>
+<th>Parameter Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>job__started_date</td>
+<td>[JOB:STARTED_DATE]</td>
+</tr>
+<tr>
+<td>job__owned_by</td>
+<td>[JOB:OWNED_BY]</td>
+</tr>
+<tr>
+<td>job__id</td>
+<td>[JOB:ID]</td>
+</tr>
+<tr>
+<td>production_ws</td>
+<td>Database Connections\prod_elrs_elrs_ad_Lockroot.sde</td>
+</tr>
+<tr>
+<td>reviewer_ws</td>
+<td>D:\TempProdDataReviewerWs.gdb</td>
+</tr>
+<tr>
+<td>log_path</td>
+<td></td>
+</tr>
+<tr>
+<td>log_level</td>
+<td>INFO</td>
+</tr>
+<tr>
+<td>batch_job_file</td>
+<td>\dot-smb\dot_shared\DOT Data\Office of Engineering\Technical Services\Highway Data Services Bureau\GIS\Roads_And_Highways_Tools\DataReviewer_TemporaryProd\WMXDataReviewerTools\Reviewer_Batch_Jobs\TemporaryProdRoutesValidations.rbj</td>
+</tr>
+<tr>
+<td>full_db_flag</td>
+<td></td>
+</tr>
+</tbody>
+</table>
 <h2 id="managing-deployments">Managing Deployments</h2>
 <p>The easiest way to manage separate deployments is using git. This repository can be cloned onto the P drive, then you can create a new branch if required, switch to an existing branch, update the code to suit your needs, and commit the changes back to the repository. To create a new deployment, simply navigate to the folder you want to save the codebase to and run the following command:</p>
 <pre><code class="shell language-shell">git clone https://github.com/vitale232/WMXDataReviewerTools.git
